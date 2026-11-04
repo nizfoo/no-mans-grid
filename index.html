@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121010">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -29,7 +29,7 @@
   --f-type:"Special Elite","Courier New",Courier,monospace;
   --f-ui:"Barlow Semi Condensed","Arial Narrow","Helvetica Neue",Arial,sans-serif;
 }
-html,body{height:100%}
+html,body{height:100%;touch-action:manipulation}
 [hidden]{display:none!important}
 body{background:var(--night);color:var(--bone);font-family:var(--f-ui);font-size:15px;overflow-x:hidden;touch-action:manipulation;
   background-image:radial-gradient(ellipse at 50% 30%,rgba(226,163,60,.07),transparent 62%)}
@@ -829,6 +829,8 @@ function draw(now){
     if(s.state==='move')drawSoldier(s.x,s.y,cell,s.ph,0.25*(s.dir||1));
     else drawHunker(s.x,s.y,cell,s.state==='work'?s.ph:now/1000*2+s.col,s.state==='work');}
   if(troops)for(const tr of troops){if(tr.delay>0||tr.d>=tr.L.total)continue;const[x,y]=pointAt(tr.L,tr.d);drawSoldier(x,y,cell,tr.ph,-0.1);}
+  if(deny){const k=(now-deny.t0)/900;if(k>=1)deny=null;else{const a=1-k;ctx.lineWidth=3;
+    for(const[q,col]of[[deny.i,'194,59,42'],[deny.j,'226,163,60']]){const[x,y]=cellXY(q),s=cell*0.44;ctx.strokeStyle=`rgba(${col},${a})`;rr(ctx,x-s,y-s,s*2,s*2,cell*0.14);ctx.stroke();}}}
   drawLob(now);drawFx(now);drawBanner(now);
 }
 
@@ -853,8 +855,23 @@ function applyMark(i){
   drag.changes.push([i,cells[i]]);setCell(i,drag.setTo);haptic();startTimer();hud();draw();
   if(drag.setTo===1)coach('mark','Sapper moving up, sir. He\'ll probe it and drive a stake.');
 }
+let deny=null;
+function flagConflict(i){
+  const r=(i/N)|0,c=i%N,g=P.reg[i];
+  for(let j=0;j<N*N;j++){
+    if(j===i)continue;const v=cells[j];
+    const known=v===2||v===6||(v===4&&isMine(j));if(!known)continue;
+    const r2=(j/N)|0,c2=j%N;
+    if(r2===r)return{j,why:`Row ${r+1} already has a mine flagged.`};
+    if(c2===c)return{j,why:`Column ${LETTERS[c]} already has a mine flagged.`};
+    if(P.reg[j]===g)return{j,why:`That sector already has its mine.`};
+    if(Math.abs(r2-r)<=1&&Math.abs(c2-c)<=1)return{j,why:`Too close to ${cellName(j)}. Mines are never laid touching.`};
+  }
+  return null;
+}
 function toggleFlag(i){
   if(locked(i))return;
+  if(cells[i]!==2){const cf=flagConflict(i);if(cf){deny={i,j:cf.j,t0:performance.now()};toast(cf.why);haptic();draw();return;}}
   const prev=cells[i];if(prev===2)fieldEdited=true;setCell(i,prev===2?0:2);undo.push([[i,prev]]);haptic('heavy');startTimer();hud();save();draw();
   if(prev!==2)coach('flag','Mine flagged. The lads will give it a wide berth.');
 }
@@ -890,6 +907,11 @@ function endDrag(){
 cv.addEventListener('pointerup',endDrag);
 cv.addEventListener('pointercancel',()=>{if(drag){clearTimeout(drag.lp);if(drag.changes.length)undo.push(drag.changes);}drag=null;});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
+// iOS Safari: stop the double-tap zoom and long-press callout on the board (pointer events still fire)
+cv.addEventListener('touchstart',e=>{if(e.touches.length===1)e.preventDefault();},{passive:false});
+cv.addEventListener('touchend',e=>e.preventDefault(),{passive:false});
+document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
+let lastTouchEnd=0;document.addEventListener('touchend',e=>{const n=Date.now();if(n-lastTouchEnd<350&&e.target.closest&&!e.target.closest('textarea,input,select'))e.preventDefault();lastTouchEnd=n;},{passive:false});
 
 function toast(msg,ms){const t=$('toast');t.textContent=msg;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),ms||Math.max(2600,msg.length*55));}
 function coach(k,msg){if(mode!=='campaign'||field>3)return;const c=store.get('coached',{});if(c[k])return;c[k]=1;store.set('coached',c);setTimeout(()=>toast(msg),k==='stake'?0:450);}
