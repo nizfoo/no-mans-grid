@@ -430,7 +430,7 @@ function scoreOf(r){return r.level*100+r.used[3]*4+r.used[4]*10+r.used[5]*25+r.u
 // Intel brief: from what is known for certain, find the simplest next deduction and say it plainly.
 // st: Uint8Array of N*N, 0 unknown, 1 mine, 2 clear. Returns {kind,text,focus:[cells],mines:[cells],clears:[cells]} or null.
 function nextHint(reg,N,st,secName){
-  const NN=N*N,L='ABCDEFGHI',nm=i=>L[i%N]+(((i/N)|0)+1),cap=s=>s[0].toUpperCase()+s.slice(1);
+  const NN=N*N,L='ABCDEFGHIJ',nm=i=>L[i%N]+(((i/N)|0)+1),cap=s=>s[0].toUpperCase()+s.slice(1);
   const units=[];
   for(let r=0;r<N;r++){const u=[];for(let c=0;c<N;c++)u.push(r*N+c);units.push({t:'r',k:r,cells:u,name:`row ${r+1}`});}
   for(let c=0;c<N;c++){const u=[];for(let r=0;r<N;r++)u.push(r*N+c);units.push({t:'c',k:c,cells:u,name:`column ${L[c]}`});}
@@ -482,10 +482,10 @@ const $=id=>document.getElementById(id);
 const cv=$('board'),ctx=cv.getContext('2d'),wrap=$('wrap');
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const F_SFX='Bangers, Impact, "Arial Black", sans-serif', F_UI='"Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif';
-const LETTERS='ABCDEFGHI';
+const LETTERS='ABCDEFGHIJ';
 const NAMES=['Hale','Pryce','Doyle','Ashby','Merritt','Kemp','Rourke','Lyle','Thorne','Fenwick','Bell','Okafor','Rees','Gant','Mabey','Coyle','Sutter','Pask','Iles','Dunmore'];
 const VARIANTS=[{k:'mud',base:'#4e4035'},{k:'mud',base:'#85725a'},{k:'grass',base:'#626b52'},{k:'grass',base:'#424c38'},{k:'grass',base:'#837c5e'},
-  {k:'water',base:'#425560'},{k:'water',base:'#6a7563'},{k:'asphalt',base:'#383735'},{k:'asphalt',base:'#74716a'}];
+  {k:'water',base:'#425560'},{k:'water',base:'#6a7563'},{k:'asphalt',base:'#383735'},{k:'asphalt',base:'#74716a'},{k:'mud',base:'#66553f'}];
 const BASE={road:'#6c6963',pond:'#35596b',mud:'#4d3a27',scrub:'#4a5e30',chalk:'#b5ab8f',burnt:'#27211c',wheat:'#9e7d3a',brick:'#743e2c',wire:'#4d4655'};
 const WX=[
  {k:'rain',code:'-RA BR',vis:'4000',cl:'OVC008',t:'09/08',line:"Rain'll cover the noise. Use it."},
@@ -556,6 +556,7 @@ const MEDALS=[
  {id:'roll10',n:'Lest We Forget',d:'Ten names on the Roll of Honour.',rib:['#2a2420','#7a1f1c','#2a2420'],sh:'poppy'},
  {id:'weather',n:'All Weathers',d:'Take a field in rain, drizzle, fog, snow and a clear night.',rib:['#425560','#e9dcc0','#425560'],sh:'star'},
  {id:'daily1',n:'Dawn Dispatch',d:'Finish your first daily field.',rib:['#c9a24a','#3e3a5c'],sh:'disc'},
+ {id:'push',n:'The Big Push',d:'Take your first 10×10 field.',rib:['#4d5b37','#8e2a1e','#c9a24a','#8e2a1e','#4d5b37'],sh:'cross'},
  {id:'week',n:'Week on the Wire',d:'Take the daily field seven days running. Every seventh day issues a Mills bomb.',rib:['#c9a24a','#7a1f1c','#c9a24a'],sh:'star'}];
 let stats=store.get('stats',null);if(!stats)stats={taken:0,failed:0,clean:0,cleanRun:0,bestRun:0,trio:{k:'',n:0},weathers:[],best:{},medals:{}};
 if(stats.bombs==null)stats.bombs=1; // one to learn with
@@ -564,7 +565,7 @@ const BOMB_CAP=3,INTEL_CAP=2,CLEANS_PER_BOMB=5,FIELDS_PER_INTEL=10;
 let issueLog=[];
 function giveBomb(why){const ok=stats.bombs<BOMB_CAP;if(ok)stats.bombs++;issueLog.push({k:'bomb',why,ok});return ok;}
 function giveIntel(why){const ok=stats.intel<INTEL_CAP;if(ok)stats.intel++;issueLog.push({k:'intel',why,ok});return ok;}
-const HARD=['swift','run5','nine','m50','m100','sgt','rsm','trio','weather','lastman'];
+const HARD=['swift','run5','nine','push','m50','m100','sgt','rsm','trio','weather','lastman'];
 function saveStats(){store.set('stats',stats);}
 function medalArt(m,small){
   const r=m.rib,w=small?30:40,h=small?46:62;let s=`<svg viewBox="0 0 40 62" width="${w}" height="${h}" aria-hidden="true">`;
@@ -591,6 +592,7 @@ function checkMedals(o){
     if(N>=7&&elapsed<90&&!o.lost.length)award('swift',got);
     if(stats.cleanRun>=5)award('run5',got);
     if(N===9)award('nine',got);
+    if(N===10)award('push',got);
     if(mode==='campaign'&&field>=50)award('m50',got);
     if(mode==='campaign'&&field>=100)award('m100',got);
     if(stats.trio.n>=10)award('trio',got);
@@ -681,7 +683,7 @@ function nextField(){
 // missions 1-50 climb from 5×5 to 9×9; after that the size is drawn at random, leaning large
 // Missions 1-50 use hand-picked boards: graded by the solver, then ordered so difficulty climbs smoothly within each board size
 const MISSION_SEEDS=[5007, 5009, 5015, 5505, 5429, 5596, 5521, 5543, 6392, 6189, 6120, 6209, 6406, 6099, 6378, 6089, 6053, 6574, 7542, 7376, 7380, 7557, 7590, 7235, 7298, 7297, 7250, 7269, 7381, 7076, 8385, 8581, 8030, 8225, 8148, 8040, 8400, 8052, 8486, 8354, 8093, 8165, 9334, 9293, 9202, 9310, 9590, 9085, 9254, 9410];
-const BUILD='18 · intel briefs';
+const BUILD='19 · 10×10 fields';
 const GRADES=['','I','II','III','IV','V','VI'];
 // after 50: a steady mix of grade III, IV and V
 function lateTarget(m){const r=mulberry32(m*977+5)();return r<.4?3:r<.8?4:5;}
@@ -689,11 +691,12 @@ const seedCache={};
 function pickSeed(base,n,target){
   const key=base+':'+n+':'+target;if(seedCache[key]!=null)return seedCache[key];
   let best=base,bestGap=99;
-  for(let k=0;k<40;k++){const s=base+k,p=generate(n,n*100000+s);if(!p)continue;const lv=rateBoard(p.reg,n).level;
+  for(let k=0;k<(n>=10?14:40);k++){const s=base+k,p=generate(n,n*100000+s);if(!p)continue;const lv=rateBoard(p.reg,n).level;
     if(lv>=6)continue;const gap=Math.abs(lv-target);if(gap<bestGap){best=s;bestGap=gap;}if(gap===0)break;}
   return seedCache[key]=best;
 }
-function sizeFor(m){if(m<=8)return 5;if(m<=18)return 6;if(m<=30)return 7;if(m<=42)return 8;if(m<=50)return 9;const r=mulberry32(m*977)();return r<.4?9:r<.7?8:r<.9?7:6;}
+function sizeFor(m){if(m<=8)return 5;if(m<=18)return 6;if(m<=30)return 7;if(m<=42)return 8;if(m<=50)return 9;if(m===51)return 10; // the 10×10 debuts at Mission 51, then joins the rotation
+  const r=mulberry32(m*977)();return r<.25?10:r<.55?9:r<.8?8:r<.95?7:6;}
 let field=store.get('mission',1),N=sizeFor(field);
 if(mode==='daily')N=7;
 let P,cells,markT,markAt,seq=0,roster,lostNames,terr,wx,phase='play',undo=[],sappers=[],troops=null,fx=[],ripples=[],embers=[],ponds=[],banner=null;

@@ -2,7 +2,7 @@
 // Intel brief: from what is known for certain, find the simplest next deduction and say it plainly.
 // st: Uint8Array of N*N, 0 unknown, 1 mine, 2 clear. Returns {kind,text,focus:[cells],mines:[cells],clears:[cells]} or null.
 function nextHint(reg,N,st,secName){
-  const NN=N*N,L='ABCDEFGHI',nm=i=>L[i%N]+(((i/N)|0)+1),cap=s=>s[0].toUpperCase()+s.slice(1);
+  const NN=N*N,L='ABCDEFGHIJ',nm=i=>L[i%N]+(((i/N)|0)+1),cap=s=>s[0].toUpperCase()+s.slice(1);
   const units=[];
   for(let r=0;r<N;r++){const u=[];for(let c=0;c<N;c++)u.push(r*N+c);units.push({t:'r',k:r,cells:u,name:`row ${r+1}`});}
   for(let c=0;c<N;c++){const u=[];for(let r=0;r<N;r++)u.push(r*N+c);units.push({t:'c',k:c,cells:u,name:`column ${L[c]}`});}
