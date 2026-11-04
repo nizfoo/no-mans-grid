@@ -613,7 +613,7 @@ function nextField(){
 // missions 1-50 climb from 5×5 to 9×9; after that the size is drawn at random, leaning large
 // Missions 1-50 use hand-picked boards: graded by the solver, then ordered so difficulty climbs smoothly within each board size
 const MISSION_SEEDS=[5007, 5009, 5015, 5505, 5429, 5596, 5521, 5543, 6392, 6189, 6120, 6209, 6406, 6099, 6378, 6089, 6053, 6574, 7542, 7376, 7380, 7557, 7590, 7235, 7298, 7297, 7250, 7269, 7381, 7076, 8385, 8581, 8030, 8225, 8148, 8040, 8400, 8052, 8486, 8354, 8093, 8165, 9334, 9293, 9202, 9310, 9590, 9085, 9254, 9410];
-const BUILD='15 · graded missions';
+const BUILD='16 · 57th Field Sappers';
 const GRADES=['','I','II','III','IV','V','VI'];
 // after 50: a steady mix of grade III, IV and V
 function lateTarget(m){const r=mulberry32(m*977+5)();return r<.4?3:r<.8?4:5;}
@@ -1372,7 +1372,7 @@ function onbPages(){
   const sq=roster.filter(n=>!lostNames.includes(n)).map(title),OC='Maj. Ashworth, OC';
   return[
     {sc:'road',cap:'The forward area. 0340.'},
-    {sc:'road',cap:"You are the new subaltern of B Company's field section. The last one lasted eleven days."},
+    {sc:'road',cap:"You are the new subaltern of B Company, 57th Field Sappers. The last one lasted eleven days."},
     {sc:'dugout',who:OC,line:'Lieutenant. Good, you found us. Sit. We go over at dawn.'},
     {sc:'dugout',who:OC,line:"Between us and their wire is a minefield nobody has mapped. That's your job now. Not the digging. The thinking."},
     {sc:'map:rules',who:OC,line:'Every field is cut into sectors. Their engineers are tidy: one mine in every row, every column and every sector.',low:true},
@@ -1531,7 +1531,7 @@ function showCompany(){
   const st=store.get('streak',{n:0}),won=Object.keys(stats.medals).length;
   const mdl=m=>{const d=stats.medals[m.id];return `<div class="mdl ${d?'':'locked'}">${medalArt(m)}<b>${m.n}</b><small>${m.d}</small>${d?`<em>${prettyDate(d)}</em>`:''}</div>`;};
   const sorted=MEDALS.slice().sort((a,b)=>(stats.medals[b.id]?1:0)-(stats.medals[a.id]?1:0));
-  pg.innerHTML=`<div class="report company"><h2>Service Record</h2><p class="sub">Lieutenant, B Company field section. ${mode==='daily'?'On the daily field.':`Now on ${fid.label}.`}</p>
+  pg.innerHTML=`<div class="report company"><h2>Service Record</h2><p class="sub">Lieutenant, B Company, 57th Field Sappers. ${mode==='daily'?'On the daily field.':`Now on ${fid.label}.`}</p>
     <div class="record-stats">
       <div><small>Fields taken</small><b>${stats.taken}</b></div>
       <div><small>Fields lost</small><b>${stats.failed}</b></div>
@@ -1552,7 +1552,7 @@ function showCompany(){
     <div class="danger" id="wipeBox" hidden>This wipes the company, every medal, the Roll of Honour and your mission count, then starts again at Mission 1. It can't be undone.
       <div class="acts"><button class="ghost" id="wipeNo">Keep serving</button><button class="red" id="wipeYes">Wipe and start over</button></div></div>
     <div class="acts" style="margin-top:12px"><button id="close">Back to the field</button></div>
-    <p class="sub" style="margin:10px 0 0;font-size:12px;opacity:.7">Build ${BUILD}</p></div>`;
+    <p class="sub" style="margin:10px 0 0;font-size:12px;opacity:.7">Build ${BUILD}. The 57th Field Sappers are a fictional unit. Fonts: Bangers, Patrick Hand SC and Barlow Semi Condensed (SIL Open Font License); Special Elite (Apache License 2.0). <a href="https://nizfoo.github.io/no-mans-grid/privacy.html" target="_blank" rel="noopener" style="color:inherit">Privacy</a></p></div>`;
   $('close').onclick=()=>{pg.hidden=true;};
   $('rsMission').onclick=restartMission;
   $('rsAll').onclick=()=>{$('wipeBox').hidden=false;$('wipeBox').scrollIntoView({block:'nearest'});};
