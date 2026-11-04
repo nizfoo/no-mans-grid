@@ -801,7 +801,7 @@ function drawBanner(now){
   const {x0,y0,cell}=geom,cx=x0+N*cell/2,cy=y0+N*cell*0.45;
   const sc=t<0.18?t/0.18*1.15:1.15-Math.min(0.15,(t-0.18)*0.3);
   ctx.save();ctx.translate(cx,cy);ctx.rotate(-0.08);ctx.scale(sc,sc);ctx.globalAlpha=t>1.5?(1.9-t)/0.4:1;
-  ctx.font=`${Math.min(cell*0.95,52)}px ${F_SFX}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
+  ctx.font=`${Math.min(cell*0.95,52,N*cell/7.5)}px ${F_SFX}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
   ctx.lineWidth=cell*0.2;ctx.strokeStyle='#0b0908';ctx.strokeText(banner.text,0,0);ctx.fillStyle='#ffd23f';ctx.fillText(banner.text,0,0);
   ctx.lineWidth=1.6;ctx.strokeStyle='#c23b2a';ctx.strokeText(banner.text,0,0);ctx.restore();ctx.globalAlpha=1;
 }
@@ -986,7 +986,7 @@ function finishWork(s){
   }else{cells[i]=5;s.at=i;const m=man(s.name);if(m){m.squares++;saveCompany();}coach('stake','First yard staked. They only walk on staked ground, so work out from the trench.');}
   hud();save();
 }
-function settleSoon(){if(reduce){clearTimeout(settleSoon._t);settleSoon._t=setTimeout(settle,450);}}
+function settleSoon(){}
 function settle(){ // reduced motion: resolve sapper work at once
   if(!reduce||phase!=='play')return;
   for(let k=0;k<6000&&phase==='play';k++){sapperTick(0.05);if(!sappers.some(s=>s.alive&&s.state!=='idle')&&k>2)break;}
@@ -998,7 +998,7 @@ function tally(){let m=0,f=0;for(let i=0;i<N*N;i++){if(cells[i]===6)m++;else if(
 function fieldLost(){
   phase='done';stopTimer();store.set('board',null);
   const t=tally();outcome={fail:true,lost:lostNames.slice(),mines:t.m,reveal:true};recordDaily(false);
-  stats.failed++;stats.cleanRun=0;stats.trio={k:'',n:0};outcome.awards=checkMedals(outcome);hud();setTimeout(showReport,reduce?50:1200);
+  stats.failed++;stats.cleanRun=0;stats.trio={k:'',n:0};outcome.awards=checkMedals(outcome);hud();setTimeout(showReport,1200);
 }
 
 /* ---------- the charge ---------- */
@@ -1039,7 +1039,6 @@ function startCharge(){
     const lx=p.length?cellXY(p[p.length-1])[0]:s.x;s.pts.push([lx,trenchY()]);s.wp.push(-1);
     s.job=-1;s.state='move';s.returning=true;}
   banner={t0:performance.now(),text:'OVER THE TOP!'};chargeEnd=0;
-  if(reduce){troops=null;for(const s of sappers)if(s.alive){s.x=s.pts[s.pts.length-1][0];s.y=trenchY();s.pts=[];s.state='idle';}finishCharge();}
 }
 function chargeTick(dt){
   let running=false;
@@ -1058,7 +1057,7 @@ function finishCharge(){
   if(!stats.weathers.includes(wx.k))stats.weathers.push(wx.k);
   if(!outcome.lost.length){const b=stats.best[N];if(!b||elapsed<b)stats.best[N]=Math.floor(elapsed);}
   outcome.awards=checkMedals(outcome);
-  hud();setTimeout(showReport,reduce?50:250);
+  hud();setTimeout(showReport,250);
 }
 
 /* ---------- Mills bombs ---------- */
@@ -1071,8 +1070,7 @@ function throwBomb(i){
   if(locked(i)){toast('That ground is already cleared.');return;}
   arming=false;stats.bombs--;saveStats();startTimer();haptic();
   const {cell}=geom;const[tx,ty]=cellXY(i);const sx=geom.x0+N*cell/2,sy=trenchY();
-  lob={i,sx,sy,tx,ty,t0:performance.now(),dur:reduce?0:0.75};bombHud();
-  if(reduce)landBomb();
+  lob={i,sx,sy,tx,ty,t0:performance.now(),dur:0.75};bombHud();
 }
 function landBomb(){
   const i=lob.i;lob=null;const[x,y]=cellXY(i);
@@ -1526,7 +1524,8 @@ try{
   newField({brief:true});
   window.__nmgBooted=true;$('bootcheck').hidden=true;
 }catch(e){window.__nmgFail&&window.__nmgFail((e&&e.message||e)+'\n'+((e&&e.stack)||'').split('\n').slice(0,4).join('\n')+'\n'+navigator.userAgent);throw e;}
-if(!reduce){try{ambient();}catch(e){}requestAnimationFrame(frame);}
+if(!reduce){try{ambient();}catch(e){}}
+requestAnimationFrame(frame); // gameplay always animates; Reduce Motion only drops rain, tracers and shake
 })();
 </script>
 
