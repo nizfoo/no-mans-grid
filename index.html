@@ -205,6 +205,16 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .intel.low{top:auto;bottom:4px}
 .intel p.warn{color:#8f2519;margin-top:-3px}
 .intel button{font-size:13px;padding:5px 10px;background:var(--ink);color:var(--paper)}
+.manual{width:min(100%,400px);background:var(--paper);color:var(--ink);border:4px solid var(--ink);box-shadow:8px 8px 0 #000;box-sizing:border-box;overflow:hidden}
+.manual .tg{background:#3d3b2b;color:var(--paper);border-bottom:3px solid var(--ink);padding:7px 14px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.manual .tg b{font-family:var(--f-sfx);font-weight:400;font-size:24px;letter-spacing:.06em}
+.manual .tg span{font-family:var(--f-type);font-size:11.5px;opacity:.85}
+.manual .body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:10px}
+.manual .art{background:#d6c69e;border:2px solid var(--ink);display:block;width:100%;height:auto;max-width:100%}
+.manual ol{margin:0;padding-left:20px;font-family:var(--f-letter);font-size:15.5px;line-height:1.25;display:flex;flex-direction:column;gap:5px}
+.manual .earn{font-family:var(--f-type);font-size:12.5px;line-height:1.45;border-top:2px dashed #8a7a5a;padding-top:8px;margin:0}
+.manual .acts{display:flex;justify-content:flex-end}
+.manual button{background:var(--ink);color:var(--paper);font-family:var(--f-sfx);font-size:19px;letter-spacing:.05em}
 #hap{position:fixed;left:-200px;top:0;width:1px;height:1px;opacity:0;overflow:hidden}
 @media (prefers-reduced-motion:reduce){#amb{display:none}#board.shake{animation:none}.send:not(:disabled){animation:none}}
 </style>
@@ -254,6 +264,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
   </div>
 </div>
 <div class="page" id="page" hidden></div>
+<div class="page" id="manual" hidden style="z-index:30"></div>
 <label id="hap" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
 
 <script>
@@ -683,7 +694,7 @@ function nextField(){
 // missions 1-50 climb from 5×5 to 9×9; after that the size is drawn at random, leaning large
 // Missions 1-50 use hand-picked boards: graded by the solver, then ordered so difficulty climbs smoothly within each board size
 const MISSION_SEEDS=[5007, 5009, 5015, 5505, 5429, 5596, 5521, 5543, 6392, 6189, 6120, 6209, 6406, 6099, 6378, 6089, 6053, 6574, 7542, 7376, 7380, 7557, 7590, 7235, 7298, 7297, 7250, 7269, 7381, 7076, 8385, 8581, 8030, 8225, 8148, 8040, 8400, 8052, 8486, 8354, 8093, 8165, 9334, 9293, 9202, 9310, 9590, 9085, 9254, 9410];
-const BUILD='19 · 10×10 fields';
+const BUILD='20 · field manuals';
 const GRADES=['','I','II','III','IV','V','VI'];
 // after 50: a steady mix of grade III, IV and V
 function lateTarget(m){const r=mulberry32(m*977+5)();return r<.4?3:r<.8?4:5;}
@@ -1245,6 +1256,43 @@ function finishCharge(){
   hud();setTimeout(showReport,250);
 }
 
+/* ---------- field manual: a one-time how-to for each kind of ordnance ---------- */
+const MANUAL={
+ bomb:{title:'MILLS BOMB',art:()=>`<svg class="art" viewBox="0 0 300 110" aria-hidden="true">
+   <rect x="0" y="88" width="300" height="22" fill="#5a4f3e"/><path d="M0 88 h300" stroke="#0b0908" stroke-width="2"/>
+   ${[0,1,2,3,4].map(c=>`<rect x="${150+c*28}" y="${8+(c%2)*0}" width="26" height="26" fill="${['#5d6650','#56483b','#425560','#5d6650','#66635d'][c]}" stroke="#0b0908" stroke-width="1.5"/>`).join('')}
+   ${[0,1,2,3,4].map(c=>`<rect x="${150+c*28}" y="36" width="26" height="26" fill="${['#56483b','#5d6650','#66635d','#425560','#56483b'][c]}" stroke="#0b0908" stroke-width="1.5"/>`).join('')}
+   <path d="M40 84 Q 120 -10 219 30" fill="none" stroke="#0b0908" stroke-width="2" stroke-dasharray="5 5"/>
+   <g transform="translate(36 70)">${bombArt(26).replace('<svg','<svg x="-10" y="-14" width="20"')}</g>
+   <circle cx="219" cy="49" r="17" fill="#ffd23f" stroke="#c23b2a" stroke-width="3"/><text x="219" y="54" text-anchor="middle" font-family="Bangers, Impact, sans-serif" font-size="13" fill="#0b0908">BLAM</text>
+   <text x="10" y="104" font-family="Patrick Hand SC, sans-serif" font-size="13" fill="#e8dcc0">our trench</text></svg>`,
+   steps:['Tap the bomb button under the board to pull the pin.','Tap any square that isn\'t cleared yet. It\'s thrown from your trench.','If it\'s mined, the mine goes up with it. The square counts as found and becomes safe ground.','If it isn\'t mined, the square is simply cleared. Either way, no sapper is at risk.','Changed your mind? Tap the bomb button again to put the pin back.'],
+   earn:`Issued for every ${CLEANS_PER_BOMB} clean sweeps, every 7 days running on the daily, and the harder decorations. Stores hold ${BOMB_CAP}; anything past that isn't issued, so use them.`},
+ intel:{title:'INTEL BRIEF',art:()=>{let s=`<svg class="art" viewBox="0 0 300 110" aria-hidden="true">`;
+   for(let r=0;r<3;r++)for(let c=0;c<6;c++){s+=`<rect x="${12+c*30}" y="${10+r*30}" width="28" height="28" fill="${(c===3)?'#c9a24a':'#7d8a6a'}" fill-opacity="${c===3?.55:1}" stroke="#0b0908" stroke-width="1.5"/>`;}
+   s+=`<rect x="101" y="9" width="30" height="90" fill="none" stroke="#b8860b" stroke-width="2.5" stroke-dasharray="5 4"/>
+   <circle cx="116" cy="54" r="11" fill="none" stroke="#c23b2a" stroke-width="3"/><circle cx="116" cy="24" r="10" fill="none" stroke="#f4efe2" stroke-width="3"/><circle cx="116" cy="84" r="10" fill="none" stroke="#f4efe2" stroke-width="3"/>
+   <text x="198" y="30" font-family="Patrick Hand SC, sans-serif" font-size="13" fill="#0b0908">amber: what it's</text><text x="198" y="44" font-family="Patrick Hand SC, sans-serif" font-size="13" fill="#0b0908">reasoning about</text>
+   <text x="198" y="66" font-family="Patrick Hand SC, sans-serif" font-size="13" fill="#8f2519">red ring: mine</text><text x="198" y="86" font-family="Patrick Hand SC, sans-serif" font-size="13" fill="#0b0908">white ring: clear</text></svg>`;return s;},
+   steps:['Tap the intel button under the board, next to the bomb.','HQ sends the simplest next deduction your map supports, in plain words, highlighted on the field.','It only trusts what\'s certain: staked squares, craters and your correct marks. If one of your marks disagrees, it says so.','If there\'s nothing new to work out, the brief isn\'t used up.','Tap Understood to put it away. The marking is still yours to do.'],
+   earn:`Issued for every ${FIELDS_PER_INTEL} fields taken. Stores hold ${INTEL_CAP}. Keep one for the field that stops you cold.`}
+};
+function manualSeen(k){return !!store.get('manual',{})[k];}
+const manualQueue=[];
+function showManual(k,then){
+  const m=MANUAL[k],el=$('manual');const seen=store.get('manual',{});seen[k]=true;store.set('manual',seen);
+  el.innerHTML=`<div class="manual" role="dialog" aria-label="Field manual: ${m.title.toLowerCase()}"><div class="tg"><b>${m.title}</b><span>FIELD MANUAL · ISSUED WITH STORES</span></div><div class="body">
+    ${m.art()}<ol>${m.steps.map(s=>`<li>${s}</li>`).join('')}</ol><p class="earn">${m.earn}</p>
+    <div class="acts"><button id="manualOk">Got it</button></div></div></div>`;
+  el.hidden=false;el.scrollTop=0;
+  $('manualOk').onclick=()=>{el.hidden=true;el.innerHTML='';const nx=manualQueue.shift();if(nx)showManual(nx);else if(then)then();};
+}
+// after a report: brief the player on anything just issued that they haven't been shown yet
+function briefNewIssues(list){
+  for(const x of list||[])if(x.ok&&!manualSeen(x.k)&&!manualQueue.includes(x.k))manualQueue.push(x.k);
+  if(manualQueue.length)setTimeout(()=>{const k=manualQueue.shift();if(k)showManual(k);},reduce?200:1400);
+}
+
 /* ---------- intel briefs ---------- */
 let intelHL=null;
 const TERR_WORD={mud:'mud',grass:'grass',water:'crater-water',asphalt:'road'};
@@ -1254,6 +1302,7 @@ $('intelX').onclick=closeIntel;
 $('intelBtn').onclick=()=>{
   if(phase!=='play')return;
   if(!stats.intel){toast(`No intel briefs in stores. One is issued for every ${FIELDS_PER_INTEL} fields taken.`);return;}
+  if(!manualSeen('intel')){showManual('intel');return;}
   // intel works only from what is certain: confirmed squares and your correct marks
   const st=new Uint8Array(N*N);
   for(let i=0;i<N*N;i++){const v=cells[i],m=isMine(i);
@@ -1283,7 +1332,8 @@ function drawIntel(now){
 /* ---------- Mills bombs ---------- */
 $('bombBtn').onclick=()=>{
   if(phase!=='play'||lob)return;
-  if(!stats.bombs){toast('No Mills bombs in stores. Earn them with a week of dailies and the harder decorations.');return;}
+  if(!stats.bombs){toast(`No Mills bombs in stores. Earn them with ${CLEANS_PER_BOMB} clean sweeps, a week of dailies or the harder decorations.`);return;}
+  if(!arming&&!manualSeen('bomb')){showManual('bomb');return;}
   arming=!arming;bombHud();if(arming)toast('Pin out. Tap the square to bomb. Tap the bomb again to put the pin back.',3200);
 };
 function throwBomb(i){
@@ -1568,7 +1618,7 @@ function showReport(){
     <p class="fallen" style="color:#3a2f22;border-color:#8f2519">Their names go on the Roll of Honour. Replacements are on the way.</p>
     ${awardsHTML(o.awards||[])}${issuesHTML(o.issues||[])}
     <div class="acts"><button class="ghost" id="view">View map</button>${fid.daily?'<button class="ghost" id="ledger">Daily dispatch</button><button id="retry">Retry daily</button>':'<button id="retry">Retry mission</button>'}</div></div>`;
-  typeOut($('typed'),text);wireShare();
+  typeOut($('typed'),text);wireShare();briefNewIssues(o.issues);
   $('view').onclick=()=>{pg.hidden=true;};
   const nx=$('next');if(nx)nx.onclick=nextField;const lg=$('ledger');if(lg)lg.onclick=showLedger;
   const rt=$('retry');if(rt)rt.onclick=restartMission;
@@ -1637,7 +1687,7 @@ function showVictory(){
     ${o.lost.length?`<div class="fallen">Fell today: ${o.lost.map(n=>`${title(n)}, ${man(n)?man(n).fields:0} field${man(n)&&man(n).fields===1?'':'s'} served`).join('; ')}.</div>`:''}
     ${fid.daily?'<textarea class="share-box" id="shareTxt" rows="5" readonly hidden></textarea>':''}
     <div class="acts"><button class="ghost" id="view">View map</button>${fid.daily?'<button class="go" id="ledger">Daily dispatch</button>':'<button class="go" id="next">Next mission</button>'}</div></div>`;
-  wireShare();
+  wireShare();briefNewIssues(o.issues);
   const vd=$('vdlg');if(reduce)vd.classList.add('in');else setTimeout(()=>vd.classList.add('in'),650);
   pg.querySelectorAll('.tile b').forEach(b=>{const n=+b.dataset.n,suf=b.dataset.s||'',time=b.dataset.t==='time';
     const fmtv=v=>time?fmt(v):Math.round(v)+suf;if(reduce){b.textContent=fmtv(n);return;}
