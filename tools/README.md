@@ -5,3 +5,4 @@
   I last spot · II boxed in · III blast check · IV pairs and trios · V what-if · VI beyond.
 - `curve.js` grades a pool of boards per size and picks the seeds for missions 1–50 so difficulty climbs smoothly.
   Run `node tools/curve.js`; it writes `seeds.json`, which is pasted into `MISSION_SEEDS` in `index.html`.
+- `hint.js` finds the simplest next deduction from what's certain and explains it. It powers intel briefs.
