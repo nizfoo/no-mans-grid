@@ -203,6 +203,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .intel b{display:block;font-family:var(--f-sfx);font-weight:400;font-size:18px;letter-spacing:.05em;color:#7a5a12;line-height:1.05}
 .intel p{margin:3px 0 7px;font-family:var(--f-letter);font-size:15.5px;line-height:1.22}
 .intel.low{top:auto;bottom:4px}
+.intel ol{margin:5px 0 0;padding-left:20px;font-size:13.5px;line-height:1.25}
 .intel p.warn{color:#8f2519;margin-top:-3px}
 .intel button{font-size:13px;padding:5px 10px;background:var(--ink);color:var(--paper)}
 .manual{width:min(100%,400px);background:var(--paper);color:var(--ink);border:4px solid var(--ink);box-shadow:8px 8px 0 #000;box-sizing:border-box;overflow:hidden}
@@ -454,19 +455,19 @@ function nextHint(reg,N,st,secName){
   const list=a=>a.length<=3?a.map(nm).join(', '):`${a.length} squares`;
   // 0: squares ruled out by a confirmed mine
   for(let i=0;i<NN;i++){if(st[i]!==1)continue;const open=attack[i].filter(j=>st[j]===0);
-    if(open.length)return{kind:'Confirmed mine',text:`${nm(i)} is a confirmed mine. Nothing else can sit in its row, column or sector, or touch it, so ${list(open)} ${open.length===1?'is':'are'} clear.`,focus:[i],mines:[],clears:open};}
+    if(open.length)return{kind:'Confirmed mine',short:`squares around the mine at ${nm(i)} are clear`,text:`${nm(i)} is a confirmed mine. Nothing else can sit in its row, column or sector, or touch it, so ${list(open)} ${open.length===1?'is':'are'} clear.`,focus:[i],mines:[],clears:open};}
   // 1: last spot
-  for(const u of units){const c=cands(st,u);if(c&&c.length===1)return{kind:'Last spot',text:`There's only one square left where the mine for ${u.name} can go: ${nm(c[0])}.`,focus:u.cells,mines:[c[0]],clears:[]};}
+  for(const u of units){const c=cands(st,u);if(c&&c.length===1)return{kind:'Last spot',short:`last spot for ${u.name}: ${nm(c[0])} is mined`,text:`There's only one square left where the mine for ${u.name} can go: ${nm(c[0])}.`,focus:u.cells,mines:[c[0]],clears:[]};}
   // 2: boxed in
   for(const u of units){const c=cands(st,u);if(!c||c.length<2)continue;
     const ways=u.t==='g'?[['r',i=>(i/N)|0,k=>`row ${k+1}`],['c',i=>i%N,k=>`column ${L[k]}`]]:[['g',i=>reg[i],k=>secName(k)]];
     for(const[tt,f,label]of ways){const k=f(c[0]);if(!c.every(i=>f(i)===k))continue;
       const other=units.find(v=>v.t===tt&&v.k===k),cl=other.cells.filter(j=>st[j]===0&&!u.cells.includes(j));
-      if(cl.length)return{kind:'Boxed in',text:`The mine for ${u.name} has to be in ${label(k)}. That's the one mine for ${label(k)}, so the rest of it is clear: ${list(cl)}.`,focus:u.cells,mines:[],clears:cl};}}
+      if(cl.length)return{kind:'Boxed in',short:`${u.name} is boxed into ${label(k)}`,text:`The mine for ${u.name} has to be in ${label(k)}. That's the one mine for ${label(k)}, so the rest of it is clear: ${list(cl)}.`,focus:u.cells,mines:[],clears:cl};}}
   // 3: blast check
   for(let i=0;i<NN;i++){if(st[i]!==0)continue;const a=new Set(attack[i]);
     for(const u of units){if(u.cells.includes(i))continue;const c=cands(st,u);if(!c||!c.length)continue;
-      if(c.every(j=>a.has(j)))return{kind:'Blast check',text:`A mine at ${nm(i)} would rule out every square left for ${u.name}. So ${nm(i)} is clear.`,focus:u.cells.concat([i]),mines:[],clears:[i]};}}
+      if(c.every(j=>a.has(j)))return{kind:'Blast check',short:`a mine at ${nm(i)} would leave ${u.name} empty`,text:`A mine at ${nm(i)} would rule out every square left for ${u.name}. So ${nm(i)} is clear.`,focus:u.cells.concat([i]),mines:[],clears:[i]};}}
   // 4: pairs and trios
   const combos=(arr,k)=>{const out=[];const rec=(s,acc)=>{if(acc.length===k){out.push(acc.slice());return;}for(let x=s;x<arr.length;x++){acc.push(arr[x]);rec(x+1,acc);acc.pop();}};rec(0,[]);return out;};
   const pairs=[['g','r',i=>(i/N)|0,'sectors','rows'],['g','c',i=>i%N,'sectors','columns'],['r','g',i=>reg[i],'rows','sectors'],['c','g',i=>reg[i],'columns','sectors']];
@@ -476,7 +477,7 @@ function nextHint(reg,N,st,secName){
       for(const set of combos(open,k)){const keys=new Set();set.forEach(x=>x.c.forEach(i=>keys.add(f(i))));if(keys.size!==k)continue;
         const inside=new Set();set.forEach(x=>x.u.cells.forEach(i=>inside.add(i)));const cl=[],tos=[];
         for(const key of keys){const tu=units.find(v=>v.t===to&&v.k===key);tos.push(tu.name);for(const j of tu.cells)if(st[j]===0&&!inside.has(j))cl.push(j);}
-        if(cl.length)return{kind:k===2?'Pair':'Trio',text:cap(`${set.map(x=>x.u.name).join(k===2?' and ':', ').replace(/, ([^,]*)$/,' and $1')} ${k===2?'both':'all'} have to put their mines in ${tos.join(k===2?' or ':', ').replace(/, ([^,]*)$/,' or $1')}. That uses up ${k===2?'both':'all three'} of the mines for those ${toW}, so ${list(cl)} ${cl.length===1?'is':'are'} clear.`),focus:[].concat(...set.map(x=>x.u.cells)),mines:[],clears:cl};}}}
+        if(cl.length)return{kind:k===2?'Pair':'Trio',short:`${k} ${fromW} share ${k===2?'two':'three'} ${toW}`,text:cap(`${set.map(x=>x.u.name).join(k===2?' and ':', ').replace(/, ([^,]*)$/,' and $1')} ${k===2?'both':'all'} have to put their mines in ${tos.join(k===2?' or ':', ').replace(/, ([^,]*)$/,' or $1')}. That uses up ${k===2?'both':'all three'} of the mines for those ${toW}, so ${list(cl)} ${cl.length===1?'is':'are'} clear.`),focus:[].concat(...set.map(x=>x.u.cells)),mines:[],clears:cl};}}}
   // 5: what-if
   const place=(s,i)=>{if(s[i]===2)return false;s[i]=1;for(const j of attack[i]){if(s[j]===1)return false;s[j]=2;}return true;};
   const easy=s=>{for(let g=0;g<300;g++){let moved=false;
@@ -484,7 +485,7 @@ function nextHint(reg,N,st,secName){
       if(!moved)return null;}return null;};
   for(let i=0;i<NN;i++){if(st[i]!==0)continue;const s2=st.slice();let bad=place(s2,i)?easy(s2):units[0];
     if(!bad)for(const u of units){const c=cands(s2,u);if(c&&c.length===0){bad=u;break;}}
-    if(bad)return{kind:'What-if',text:`Suppose ${nm(i)} were a mine. Follow the forced squares and ${bad.name} is left with nowhere for its mine. So ${nm(i)} is clear.`,focus:[i].concat(bad.cells),mines:[],clears:[i]};}
+    if(bad)return{kind:'What-if',short:`a mine at ${nm(i)} would leave ${bad.name} empty`,text:`Suppose ${nm(i)} were a mine. Follow the forced squares and ${bad.name} is left with nowhere for its mine. So ${nm(i)} is clear.`,focus:[i].concat(bad.cells),mines:[],clears:[i]};}
   return null;
 }
 
@@ -694,7 +695,7 @@ function nextField(){
 // missions 1-50 climb from 5×5 to 9×9; after that the size is drawn at random, leaning large
 // Missions 1-50 use hand-picked boards: graded by the solver, then ordered so difficulty climbs smoothly within each board size
 const MISSION_SEEDS=[5007, 5009, 5015, 5505, 5429, 5596, 5521, 5543, 6392, 6189, 6120, 6209, 6406, 6099, 6378, 6089, 6053, 6574, 7542, 7376, 7380, 7557, 7590, 7235, 7298, 7297, 7250, 7269, 7381, 7076, 8385, 8581, 8030, 8225, 8148, 8040, 8400, 8052, 8486, 8354, 8093, 8165, 9334, 9293, 9202, 9310, 9590, 9085, 9254, 9410];
-const BUILD='20 · field manuals';
+const BUILD='21 · stronger intel';
 const GRADES=['','I','II','III','IV','V','VI'];
 // after 50: a steady mix of grade III, IV and V
 function lateTarget(m){const r=mulberry32(m*977+5)();return r<.4?3:r<.8?4:5;}
@@ -1274,7 +1275,7 @@ const MANUAL={
    <circle cx="116" cy="54" r="11" fill="none" stroke="#c23b2a" stroke-width="3"/><circle cx="116" cy="24" r="10" fill="none" stroke="#f4efe2" stroke-width="3"/><circle cx="116" cy="84" r="10" fill="none" stroke="#f4efe2" stroke-width="3"/>
    <text x="198" y="30" font-family="Patrick Hand SC, sans-serif" font-size="13" fill="#0b0908">amber: what it's</text><text x="198" y="44" font-family="Patrick Hand SC, sans-serif" font-size="13" fill="#0b0908">reasoning about</text>
    <text x="198" y="66" font-family="Patrick Hand SC, sans-serif" font-size="13" fill="#8f2519">red ring: mine</text><text x="198" y="86" font-family="Patrick Hand SC, sans-serif" font-size="13" fill="#0b0908">white ring: clear</text></svg>`;return s;},
-   steps:['Tap the intel button under the board, next to the bomb.','HQ sends the simplest next deduction your map supports, in plain words, highlighted on the field.','It only trusts what\'s certain: staked squares, craters and your correct marks. If one of your marks disagrees, it says so.','If there\'s nothing new to work out, the brief isn\'t used up.','Tap Understood to put it away. The marking is still yours to do.'],
+   steps:['Tap the intel button under the board, next to the bomb.','HQ works the logic forward from what\'s certain until it pins down a mine, and lists each step it took.','Everything it proves goes straight onto your map: the mine is flagged, the clear squares are marked, and your sappers move in.','If one of your marks is wrong where it looks, HQ corrects it before anyone walks out there.','If there\'s nothing new to work out, the brief isn\'t used up.'],
    earn:`Issued for every ${FIELDS_PER_INTEL} fields taken. Stores hold ${INTEL_CAP}. Keep one for the field that stops you cold.`}
 };
 function manualSeen(k){return !!store.get('manual',{})[k];}
@@ -1307,15 +1308,28 @@ $('intelBtn').onclick=()=>{
   const st=new Uint8Array(N*N);
   for(let i=0;i<N*N;i++){const v=cells[i],m=isMine(i);
     if(v===4||v===6||(v===2&&m))st[i]=1;else if(v===5||(v===1&&!m))st[i]=2;}
-  const h=nextHint(P.reg,N,st,secName);
-  if(!h){toast('Intel has nothing new. Your map already holds everything that can be worked out.');return;}
-  stats.intel--;saveStats();startTimer();haptic();
-  const wrong=h.clears.filter(i=>cells[i]===2).concat(h.mines.filter(i=>cells[i]===1));
-  $('intelK').textContent='Intel brief · '+h.kind;$('intelT').textContent=h.text;
-  const w=$('intelW');w.hidden=!wrong.length;if(wrong.length)w.textContent=`Your map disagrees at ${wrong.map(cellName).join(', ')}.`;
-  const tg=h.mines.concat(h.clears),avgRow=tg.reduce((a,i)=>a+((i/N)|0),0)/Math.max(1,tg.length);
-  $('intel').classList.toggle('low',avgRow<(N-1)/2); // keep the panel off the squares it points to
-  $('intel').hidden=false;intelHL={...h,t0:performance.now()};hud();draw();
+  // work the logic forward until a new mine is pinned down (and the ground around it cleared)
+  const steps=[],mines=new Set(),clears=new Set(),focus=new Set();let gotMine=false;
+  for(let n=0;n<120;n++){const h=nextHint(P.reg,N,st,secName);if(!h)break;
+    steps.push(h);h.mines.forEach(i=>{mines.add(i);st[i]=1;});h.clears.forEach(i=>{clears.add(i);st[i]=2;});
+    if(h.kind!=='Confirmed mine')h.focus.forEach(i=>focus.add(i));
+    if(h.mines.length){gotMine=true;continue;}
+    if(gotMine)break;}
+  if(!steps.length){toast('Intel has nothing new. Your map already holds everything that can be worked out.');return;}
+  stats.intel--;saveStats();startTimer();haptic('heavy');
+  // put it all on the map; intel is certain, so it also overrides any wrong mark it touches
+  const fixed=[],changed=new Set();
+  for(const i of mines){if(cells[i]!==2){if(cells[i]===1)fixed.push(i);setCell(i,2);changed.add(i);}}
+  for(const i of clears){if(cells[i]===0||cells[i]===2){if(cells[i]===2)fixed.push(i);setCell(i,1);changed.add(i);}}
+  undo=undo.filter(ch=>!ch.some(([k])=>changed.has(k)));lastTap=null;
+  const mList=[...mines].map(cellName),nClear=[...clears].filter(i=>changed.has(i)).length;
+  $('intelK').textContent=mList.length?`Intel brief · mine pinned at ${mList.join(', ')}`:'Intel brief';
+  const shown=steps.length>6?steps.slice(0,2).concat([null],steps.slice(-3)):steps;
+  $('intelT').innerHTML=`HQ worked it through: ${mList.length?`${mList.join(' and ')} ${mList.length>1?'are mines':'is a mine'}`:'no new mine yet'}${nClear?` and ${nClear} square${nClear===1?' is':'s are'} clear`:''}. Marked on your map${nClear?'; sappers moving in':''}.<ol>${shown.map(h=>h?`<li>${h.short.charAt(0).toUpperCase()+h.short.slice(1)}.</li>`:'<li>…</li>').join('')}</ol>`;
+  const w=$('intelW');w.hidden=!fixed.length;if(fixed.length)w.textContent=`HQ corrected your map at ${fixed.map(cellName).join(', ')}.`;
+  const tg=[...mines,...clears],avgRow=tg.reduce((a,i)=>a+((i/N)|0),0)/Math.max(1,tg.length);
+  $('intel').classList.toggle('low',avgRow<(N-1)/2);
+  $('intel').hidden=false;intelHL={focus:[...focus],mines:[...mines],clears:[...clears],t0:performance.now()};hud();save();draw();
 };
 function drawIntel(now){
   if(!intelHL)return;const {cell}=geom,pulse=0.55+0.45*Math.sin((now-intelHL.t0)/260);
