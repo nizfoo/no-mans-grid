@@ -60,12 +60,13 @@ button:disabled{opacity:.4;cursor:not-allowed}
 @keyframes shake{15%{transform:translate(-6px,3px)}30%{transform:translate(5px,-4px)}45%{transform:translate(-4px,2px)}60%{transform:translate(3px,-1px)}80%{transform:translate(-1px,1px)}}
 .rule{font-size:13px;color:var(--ash);text-align:center;line-height:1.3}
 .rule b{color:var(--bone);font-weight:600}
-.controls{display:grid;grid-template-columns:1fr 1fr auto auto;gap:7px}
+.controls{display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:7px}
 .controls .state{grid-column:1/-1;padding-block:5px}
 .bomb{display:flex;align-items:center;gap:4px;padding-inline:8px;font-weight:600;font-variant-numeric:tabular-nums}
 .bomb svg{width:16px;height:20px;flex:none}
 .bomb[aria-pressed="true"]{background:var(--flare);color:var(--ink)}
 .bomb.none{opacity:.55}
+.bomb.ready{background:var(--paper);color:var(--ink);animation:pulse 1.2s infinite}
 .send{font-family:var(--f-sfx);font-size:21px;letter-spacing:.06em;background:var(--signal);color:#fff4e0;padding:6px 10px}
 .send:not(:disabled){animation:pulse 1.6s infinite}
 @keyframes pulse{50%{box-shadow:2px 2px 0 var(--ink),0 0 0 5px rgba(194,59,42,.25)}}
@@ -274,6 +275,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
     <button id="restart">Restart</button>
     <button id="bombBtn" class="bomb" aria-pressed="false" aria-label="Mills bombs"></button>
     <button id="intelBtn" class="bomb" aria-label="Intel briefs"></button>
+    <button id="medicBtn" class="bomb" aria-label="Stretcher parties"></button>
     <div class="state" id="state" role="status">Sappers waiting for marks</div>
   </div>
 </div>
@@ -636,7 +638,8 @@ function checkMedals(o){
 }
 function awardsHTML(list){return list.map(m=>`<div class="award">${medalArt(m,true)}<div><b>Decorated</b><span>${m.n}. ${m.d}</span></div></div>`).join('');}
 const ITEM={bomb:{what:'Mills bomb',cap:()=>BOMB_CAP,art:h=>bombArt(h)},intel:{what:'intel brief',cap:()=>INTEL_CAP,art:h=>intelArt(h)},medic:{what:'stretcher party',cap:()=>MEDIC_CAP,art:h=>medicArt(h)}};
-function medicArt(h){return `<svg viewBox="0 0 26 26" height="${h}" aria-hidden="true"><rect x="2" y="2" width="22" height="22" rx="3" fill="#e8dcc0" stroke="#0b0908" stroke-width="1.5"/><path d="M10 6 h6 v4 h4 v6 h-4 v4 h-6 v-4 h-4 v-6 h4z" fill="#b8392a" stroke="#0b0908" stroke-width="1"/></svg>`;}
+// white disc with a red stretcher; deliberately not a red cross, which is a protected emblem
+function medicArt(h){return `<svg viewBox="0 0 26 26" height="${h}" aria-hidden="true"><circle cx="13" cy="13" r="11.5" fill="#f4efe2" stroke="#0b0908" stroke-width="1.5"/><path d="M4.5 10.5 L21.5 10.5 M4.5 15.5 L21.5 15.5" stroke="#8f2519" stroke-width="1.8" stroke-linecap="round"/><rect x="7.5" y="10.5" width="11" height="5" fill="#b8392a"/><path d="M8.5 15.5 v3 M17.5 15.5 v3" stroke="#8f2519" stroke-width="1.6" stroke-linecap="round"/></svg>`;}
 function issuesHTML(list){return list.map(x=>{const it=ITEM[x.k],what=it.what,cap=it.cap();
   return `<div class="award">${it.art(30)}<div><b>${x.ok?(what.charAt(0).toUpperCase()+what.slice(1)+' issued'):'Stores full'}</b><span>${x.why}. ${x.ok?`One ${what} added to stores.`:`You already carry ${cap}. Use one to make room.`}</span></div></div>`;}).join('');}
 function intelArt(h){return `<svg viewBox="0 0 22 26" height="${h}" aria-hidden="true"><path d="M3 3 h12 l4 4 v16 h-16z" fill="#e8dcc0" stroke="#0b0908" stroke-width="1.5"/><path d="M15 3 v4 h4" fill="none" stroke="#0b0908" stroke-width="1.2"/><path d="M6 10 h10 M6 13 h10 M6 16 h6" stroke="#0b0908" stroke-opacity=".55" stroke-width="1.1"/><circle cx="15" cy="19.5" r="3.6" fill="#8f2519" stroke="#0b0908" stroke-width="1.1"/><path d="M6 6 h5" stroke="#8f2519" stroke-width="1.4"/></svg>`;}
@@ -715,7 +718,7 @@ function nextField(){
 // missions 1-50 climb from 5×5 to 9×9; after that the size is drawn at random, leaning large
 // Missions 1-50 use hand-picked boards: graded by the solver, then ordered so difficulty climbs smoothly within each board size
 const MISSION_SEEDS=[5007, 5009, 5015, 5505, 5429, 5596, 5521, 5543, 6392, 6189, 6120, 6209, 6406, 6099, 6378, 6089, 6053, 6574, 7542, 7376, 7380, 7557, 7590, 7235, 7298, 7297, 7250, 7269, 7381, 7076, 8385, 8581, 8030, 8225, 8148, 8040, 8400, 8052, 8486, 8354, 8093, 8165, 9334, 9293, 9202, 9310, 9590, 9085, 9254, 9410];
-const BUILD='22 · stretcher-bearers';
+const BUILD='23 · stretcher button';
 const GRADES=['','I','II','III','IV','V','VI'];
 // after 50: a steady mix of grade III, IV and V
 function lateTarget(m){const r=mulberry32(m*977+5)();return r<.4?3:r<.8?4:5;}
@@ -788,7 +791,8 @@ function initSappers(){
 }
 function save(){if(phase!=='play')return;store.set('board',{key:fid.key,N,cells:Array.from(cells),roster,lost:lostNames,wounded,elapsed:t0!==null?(performance.now()-t0)/1000:elapsed});}
 function renderRoster(){$('roster').innerHTML=roster.map(n=>`<span class="${wounded.includes(n)?'wounded':lostNames.includes(n)?'lost':''}">${title(n)}${stripes(n)}</span>`).join('');}
-function intelHud(){const b=$('intelBtn');b.innerHTML=intelArt(20)+'×'+stats.intel;b.classList.toggle('none',!stats.intel);b.disabled=phase!=='play';}
+function medicHud(){const b=$('medicBtn');b.innerHTML=medicArt(20)+'×'+stats.medics;b.classList.toggle('none',!stats.medics);b.classList.toggle('ready',!!casualties.length);}
+function intelHud(){medicHud();const b=$('intelBtn');b.innerHTML=intelArt(20)+'×'+stats.intel;b.classList.toggle('none',!stats.intel);b.disabled=phase!=='play';}
 function bombHud(){intelHud();const b=$('bombBtn');b.innerHTML=bombArt(20)+'×'+stats.bombs;b.classList.toggle('none',!stats.bombs);b.setAttribute('aria-pressed',String(arming));b.disabled=phase!=='play'||!!lob;}
 function hud(){bombHud();
   let f=0,l=0,q=0;for(const v of cells){if(v===2)f++;else if(v===0)l++;else if(v===1)q++;}
@@ -1211,16 +1215,21 @@ function showCasualty(){
   $('casT').textContent=`He's alive but can't move. Send the stretcher-bearers and he'll be out for this field but back for the next. Leave him and he's lost.`;
   $('casSend').textContent=`Send stretcher-bearers (${stats.medics} left)`;
   $('casualty').classList.toggle('high',((c.i/N)|0)>=(N-1)/2); // stay clear of where he fell
-  $('casualty').hidden=false;haptic('heavy');
+  $('casualty').hidden=false;haptic('heavy');medicHud();
 }
+$('medicBtn').onclick=()=>{
+  if(casualties.length){$('casSend').click();return;}
+  if(!manualSeen('medic')){showManual('medic');return;}
+  toast(stats.medics?`Stretcher-bearers standing by (${stats.medics}). If a sapper is hit, you'll be asked whether to send them.`:`No stretcher parties in stores. One is issued for every ${FIELDS_PER_MEDIC} fields taken.`);
+};
 $('casSend').onclick=()=>{
   const c=casualties.shift();$('casualty').hidden=true;if(!c)return;
   if(stats.medics<=0){killMan(c.name,c.i);showCasualty();checkAllDown();return;}
   stats.medics--;saveStats();wounded.push(c.name);
   const m=man(c.name);if(m){m.wounds=(m.wounds||0)+1;saveCompany();}
-  sendBearers(c);renderRoster();save();showCasualty();
+  sendBearers(c);renderRoster();save();showCasualty();medicHud();
 };
-$('casLeave').onclick=()=>{const c=casualties.shift();$('casualty').hidden=true;if(c)killMan(c.name,c.i);showCasualty();save();checkAllDown();};
+$('casLeave').onclick=()=>{const c=casualties.shift();$('casualty').hidden=true;if(c)killMan(c.name,c.i);showCasualty();medicHud();save();checkAllDown();};
 // two stretcher-bearers run out along staked ground and carry him home
 function pathFromTrench(to){
   const pass=j=>cells[j]===5||cells[j]===4||cells[j]===6||j===to;
@@ -1256,7 +1265,7 @@ function drawBearers(){
   ctx.strokeStyle='#5a4a32';ctx.lineWidth=Math.max(2,s*0.22);ctx.beginPath();ctx.moveTo(b.x-off,b.y+s*0.25);ctx.lineTo(b.x+off,b.y+s*0.25);ctx.stroke();
   if(b.leg==='back'){ctx.fillStyle='#d8ccb0';rr(ctx,b.x-off*0.8,b.y+s*0.05,off*1.6,s*0.45,s*0.2);ctx.fill();ctx.fillStyle='#16130f';ctx.beginPath();ctx.ellipse(b.x,b.y+s*0.12,off*0.6,s*0.22,0,0,7);ctx.fill();}
   for(const sx of[-off,off]){drawSoldier(b.x+sx,b.y,cell,b.ph+(sx>0?1.6:0),0);
-    ctx.fillStyle='#f4efe2';ctx.beginPath();ctx.arc(b.x+sx-s*0.55,b.y+s*0.25,s*0.32,0,7);ctx.fill();ctx.fillStyle='#b8392a';ctx.fillRect(b.x+sx-s*0.62,b.y+s*0.12,s*0.14,s*0.26);ctx.fillRect(b.x+sx-s*0.68,b.y+s*0.18,s*0.26,s*0.14);}
+    ctx.fillStyle='#f4efe2';ctx.fillRect(b.x+sx-s*0.8,b.y+s*0.05,s*0.5,s*0.34);ctx.fillStyle='#b8392a';ctx.fillRect(b.x+sx-s*0.72,b.y+s*0.17,s*0.34,s*0.1);}
 }
 function settle(){ // reduced motion: resolve sapper work at once
   if(!reduce||phase!=='play')return;
@@ -1345,7 +1354,7 @@ const MANUAL={
    <g transform="translate(110 64)"><path d="M-30 8 h60" stroke="#5a4a32" stroke-width="4"/><rect x="-22" y="2" width="44" height="7" rx="3" fill="#d8ccb0" stroke="#0b0908"/>
    <circle cx="-30" cy="-8" r="7" fill="#16130f"/><ellipse cx="-30" cy="-13" rx="10" ry="3.5" fill="#3d3b2b"/><rect x="-36" y="-3" width="12" height="16" rx="5" fill="#16130f"/>
    <circle cx="30" cy="-8" r="7" fill="#16130f"/><ellipse cx="30" cy="-13" rx="10" ry="3.5" fill="#3d3b2b"/><rect x="24" y="-3" width="12" height="16" rx="5" fill="#16130f"/>
-   <circle cx="-36" cy="3" r="4" fill="#f4efe2"/><path d="M-36 0 v6 M-39 3 h6" stroke="#b8392a" stroke-width="2"/></g>
+   <rect x="-43" y="-1" width="13" height="8" fill="#f4efe2" stroke="#0b0908" stroke-width=".8"/><text x="-36.5" y="5.6" text-anchor="middle" font-family="Special Elite, monospace" font-size="6.5" fill="#b8392a">SB</text></g>
    <text x="10" y="102" font-family="Patrick Hand SC, sans-serif" font-size="13" fill="#e8dcc0">our trench</text></svg>`,
    steps:['When a sapper hits a mine and you have a stretcher party in stores, the game asks whether to send it.','Two bearers run out along your staked ground and carry him back to the line.','He\'s out for the rest of that field, but he lives. Next mission he\'s back, with a brass wound stripe on his sleeve for every time it\'s happened.','Leave him, or have no party in stores, and he\'s lost for good.'],
    earn:`Issued for every ${FIELDS_PER_MEDIC} fields taken, and as a parting gift when a Regimental Sergeant Major retires. Stores hold ${MEDIC_CAP}.`},
