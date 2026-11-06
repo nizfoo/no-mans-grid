@@ -718,7 +718,7 @@ function nextField(){
 // missions 1-50 climb from 5×5 to 9×9; after that the size is drawn at random, leaning large
 // Missions 1-50 use hand-picked boards: graded by the solver, then ordered so difficulty climbs smoothly within each board size
 const MISSION_SEEDS=[5007, 5009, 5015, 5505, 5429, 5596, 5521, 5543, 6392, 6189, 6120, 6209, 6406, 6099, 6378, 6089, 6053, 6574, 7542, 7376, 7380, 7557, 7590, 7235, 7298, 7297, 7250, 7269, 7381, 7076, 8385, 8581, 8030, 8225, 8148, 8040, 8400, 8052, 8486, 8354, 8093, 8165, 9334, 9293, 9202, 9310, 9590, 9085, 9254, 9410];
-const BUILD='23 · stretcher button';
+const BUILD='24 · intro wording';
 const GRADES=['','I','II','III','IV','V','VI'];
 // after 50: a steady mix of grade III, IV and V
 function lateTarget(m){const r=mulberry32(m*977+5)();return r<.4?3:r<.8?4:5;}
@@ -1667,14 +1667,14 @@ function onbPages(){
     {sc:'road',cap:'The forward area. 0340.'},
     {sc:'road',cap:"You are the new subaltern of B Company, 57th Field Sappers. The last one lasted eleven days."},
     {sc:'dugout',who:OC,line:'Lieutenant. Good, you found us. Sit. We go over at dawn.'},
-    {sc:'dugout',who:OC,line:"Between us and their wire is a minefield nobody has mapped. That's your job now. Not the digging. The thinking."},
-    {sc:'map:rules',who:OC,line:'Every field is cut into sectors. Their engineers are tidy: one mine in every row, every column and every sector.',low:true},
-    {sc:'map:blast',who:OC,line:'And they never lay two touching, not even corner to corner. One blast would set off the next.',low:true},
+    {sc:'dugout',who:OC,line:"Between our men and their wire is a minefield nobody has mapped. That's your job now. Not the digging. The thinking."},
+    {sc:'map:rules',who:OC,line:'Only one mine per row, column and sector. Sectors are marked by colour.',low:true},
+    {sc:'map:blast',who:OC,line:'The mines are never laid touching. Not even corner to corner. One blast would set off the next.',low:true},
     {sc:'map:marks',who:OC,line:"Tap ground you're certain is clear. Double-tap or hold where you're certain there's a mine. Your pencil is free to change until a sapper has been there.",low:true},
     {sc:'trench',cap:`Your sappers. ${sq.join(', ')}.`},
     {sc:'trench',who:sq[0]||'Sapper',line:'We go where you mark, sir. Nowhere else.'},
     {sc:'trench',who:OC,line:"They follow your marks out from the trench, square by square. Mark one wrong and the man who gets there first pays for it. There are no spare men."},
-    {sc:'parapet',who:OC,line:'Map every yard and the whole company goes over behind them. Those lives are on your map, Lieutenant.'},
+    {sc:'parapet',who:OC,line:'Map the field correctly to ensure our company crosses safely. Those lives depend on your map, Lieutenant.'},
     {sc:'parapet',who:OC,line:mode==='campaign'?`${fid.label}. A small field, ${N} by ${N}. Don't guess.`:`Today's field is ${N} by ${N}. Don't guess.`,last:true}];
 }
 function showOnboarding(){
