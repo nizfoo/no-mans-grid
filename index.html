@@ -189,6 +189,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .day.won{background:#2b5a3a;color:#f4ead2}
 .day.lost{background:#8f2519;color:#f4ead2}
 .day.today{border-style:dashed;border-width:3px}
+.day.future{background:#efe6cf;color:#8a7a5a;border-style:dotted}
 .day.miss{background:#d7c9a6;color:#6b604c}
 .pips{display:flex;gap:4px;align-items:center}
 .pips span{flex:1;height:10px;border:2px solid var(--ink);background:#d7c9a6}
@@ -684,15 +685,20 @@ function wireShare(){
 function showLedger(){
   const pg=$('page');pg.hidden=false;pg.scrollTop=0;
   const log=store.get('dailyLog',{}),tk=today(),n=liveStreak(),done=log[tk];
-  const days=[];for(let k=6;k>=0;k--){const d=new Date();d.setDate(d.getDate()-k);const key=dkey(d),r=log[key];
-    const cls=r?'won':(key===tk?'today':'miss');
-    days.push(`<div class="day ${cls}"><small>${d.toLocaleDateString('en-GB',{weekday:'short'})}</small><i>${r?'✓':(key===tk?(dailyTries(key)?dailyTries(key)+'✕':'?'):'–')}</i><small>${d.getDate()}</small></div>`);}
-  const into=n===0?0:(n%7||7),left=7-into;
+  // the tiles show the current run of seven: Day 1 is the first day of this run, on the left.
+  // A missed day breaks the run, and the next daily taken becomes Day 1 again.
+  let into=n===0?0:((n-1)%7)+1;const lastKey=store.get('streak',{last:null}).last;let start=new Date();
+  if(n>0&&!(lastKey!==tk&&into===7)){const[y,m,d]=lastKey.split('-').map(Number);start=new Date(y,m-1,d);start.setDate(start.getDate()-(into-1));}
+  else into=0;
+  const days=[];for(let k=0;k<7;k++){const d=new Date(start);d.setDate(d.getDate()+k);const key=dkey(d),r=log[key];
+    const cls=r?'won':(key===tk?'today':(key<tk?'miss':'future'));
+    days.push(`<div class="day ${cls}"><small>Day ${k+1}</small><i>${r?'✓':(key===tk?(dailyTries(key)?dailyTries(key)+'✕':'?'):'')}</i><small>${d.toLocaleDateString('en-GB',{weekday:'short'})} ${d.getDate()}</small></div>`);}
+  const left=7-into;
   const pips=Array.from({length:7},(_,k)=>`<span class="${k<into?'on':''}"></span>`).join('');
   const wire=done?`FIELD OF ${prettyDate(tk).toUpperCase()} REPORTED STOP LINE TAKEN IN ${fmt(done.time)}${done.tries>1?` ON ATTEMPT ${done.tries}`:''} STOP SAPPERS HOME ${done.home} OF 3 STOP`
     :(dailyTries(tk)?`FIELD OF ${prettyDate(tk).toUpperCase()} STILL HELD STOP ${dailyTries(tk)} ATTEMPT${dailyTries(tk)>1?'S':''} REPELLED STOP TRY AGAIN STOP`:`NEW FIELD SURVEYED FOR ${prettyDate(tk).toUpperCase()} STOP SEVEN BY SEVEN STOP SAME GROUND FOR EVERY SECTION ON THE FRONT STOP`);
   const note=done?(into===7?`A full week on the wire. Mills bomb issued.`:`${left} more day${left===1?'':'s'} for the next Mills bomb. Come back tomorrow.`)
-    :(n?`Take today's field to keep the streak alive. ${left} day${left===1?'':'s'} to the next Mills bomb.`:`Seven days running earns a Mills bomb. Start today.`);
+    :(into?`Take today's field to keep the run going. ${left} day${left===1?'':'s'} to the next Mills bomb.`:`Seven days running earns a Mills bomb. Today is Day 1.`);
   pg.innerHTML=`<div class="ledger"><div class="tg"><b>DAILY DISPATCH</b><span>HQ · ${prettyDate(tk)}</span></div><div class="body">
     <p class="wire">${wire}</p>
     <div class="streak"><div class="num">${n}</div><div class="lbl">day${n===1?'':'s'} running<br>on the daily field</div></div>
@@ -718,7 +724,7 @@ function nextField(){
 // missions 1-50 climb from 5×5 to 9×9; after that the size is drawn at random, leaning large
 // Missions 1-50 use hand-picked boards: graded by the solver, then ordered so difficulty climbs smoothly within each board size
 const MISSION_SEEDS=[5007, 5009, 5015, 5505, 5429, 5596, 5521, 5543, 6392, 6189, 6120, 6209, 6406, 6099, 6378, 6089, 6053, 6574, 7542, 7376, 7380, 7557, 7590, 7235, 7298, 7297, 7250, 7269, 7381, 7076, 8385, 8581, 8030, 8225, 8148, 8040, 8400, 8052, 8486, 8354, 8093, 8165, 9334, 9293, 9202, 9310, 9590, 9085, 9254, 9410];
-const BUILD='24 · intro wording';
+const BUILD='25 · trench walkway';
 const GRADES=['','I','II','III','IV','V','VI'];
 // after 50: a steady mix of grade III, IV and V
 function lateTarget(m){const r=mulberry32(m*977+5)();return r<.4?3:r<.8?4:5;}
@@ -1133,22 +1139,24 @@ $('briefBtn').onclick=()=>showOnboarding();
 $('state').onclick=()=>{if(phase==='done'&&outcome)showReport();};
 
 /* ---------- live sappers ---------- */
-function findPath(from,to){
-  const pass=j=>cells[j]===5||cells[j]===4||cells[j]===6||j===to;
-  const prev=new Int16Array(N*N).fill(-2),q=[];
-  if(from<0){for(let c=0;c<N;c++){const i=(N-1)*N+c;if(pass(i)){prev[i]=-1;q.push(i);}}}
-  else{prev[from]=-1;q.push(from);}
+// Paths run over staked ground and along our own trench: nodes N*N..N*N+N-1 are the trench below each column,
+// so a sapper can drop back into the trench, move along it and come up in another column.
+function findPath(from,to,col){
+  const T=N*N,NODES=T+N,pass=j=>j>=T||cells[j]===5||cells[j]===4||cells[j]===6||j===to;
+  const start=from<0?T+Math.max(0,Math.min(N-1,col|0)):from;
+  const prev=new Int16Array(NODES).fill(-2),q=[start];prev[start]=-1;
+  const nbrs=i=>{const out=[];
+    if(i>=T){const c=i-T;if(c>0)out.push(i-1);if(c<N-1)out.push(i+1);out.push((N-1)*N+c);return out;}
+    const r=(i/N)|0,c=i%N;if(r>0)out.push(i-N);if(c>0)out.push(i-1);if(c<N-1)out.push(i+1);out.push(r<N-1?i+N:T+c);return out;};
   for(let h=0;h<q.length;h++){const i=q[h];
-    if(i===to){const p=[];for(let k=i;k!==-1&&k!==from;k=prev[k])p.push(k);return p.reverse();}
-    const r=(i/N)|0,c=i%N;
-    for(const[dr,dc]of[[-1,0],[1,0],[0,-1],[0,1]]){const r2=r+dr,c2=c+dc;if(r2<0||r2>=N||c2<0||c2>=N)continue;const j=r2*N+c2;if(prev[j]!==-2||!pass(j))continue;prev[j]=i;q.push(j);}}
+    if(i===to){const p=[];for(let k=i;k!==-1&&k!==start;k=prev[k])p.push(k);return p.reverse();}
+    for(const j of nbrs(i)){if(prev[j]!==-2||!pass(j))continue;prev[j]=i;q.push(j);}}
   return null;
 }
 function claimed(i){return sappers.some(s=>s.alive&&s.job===i);}
 function startJob(s,i,p){
   s.job=i;s.state='move';s.returning=false;s.pts=[];s.wp=[];
-  if(s.at<0){s.pts.push([cellXY(p[0])[0],trenchY()]);s.wp.push(-1);}
-  for(const j of p){s.pts.push(cellXY(j));s.wp.push(j);}
+  for(const j of p){if(j>=N*N){const c=j-N*N;s.pts.push([geom.x0+c*geom.cell+geom.cell/2,trenchY()]);s.wp.push(-2-c);}else{s.pts.push(cellXY(j));s.wp.push(j);}}
 }
 function cancelJob(i){
   for(const s of sappers){if(!s.alive||s.job!==i)continue;
@@ -1158,7 +1166,7 @@ function cancelJob(i){
 function moveSapper(s,dt){
   let dist=geom.cell*(3.6+0.3*(s.rank||0))*dt;s.ph+=dt*18;
   while(dist>0&&s.pts.length){const[tx,ty]=s.pts[0],dx=tx-s.x,dy=ty-s.y,d=Math.hypot(dx,dy);if(Math.abs(dx)>0.5)s.dir=Math.sign(dx);
-    if(d<=dist){s.x=tx;s.y=ty;dist-=d;s.pts.shift();const w=s.wp.shift();if(w!==undefined&&w!==s.job&&(w<0||cells[w]===5||cells[w]===4))s.at=w;}
+    if(d<=dist){s.x=tx;s.y=ty;dist-=d;s.pts.shift();const w=s.wp.shift();if(w!==undefined&&w<=-2){s.at=-1;s.col=-2-w;}else if(w!==undefined&&w!==s.job&&(w<0||cells[w]===5||cells[w]===4||cells[w]===6))s.at=w;}
     else{s.x+=dx/d*dist;s.y+=dy/d*dist;dist=0;}}
   if(!s.pts.length){if(s.cutCol>=0){s.state='work';s.workT=0;}else if(s.returning||s.job<0){s.returning=false;s.state='idle';}else{s.state='work';s.workT=0;}}
 }
@@ -1169,7 +1177,7 @@ function sapperTick(dt){
     const pend=[],now=performance.now();for(let i=0;i<N*N;i++)if(cells[i]===1&&now-markAt[i]>420&&!claimed(i))pend.push(i);
     pend.sort((a,b)=>markT[b]-markT[a]); // newest mark first
     for(const i of pend){if(!idle.length)break;let best=null,bp=null,bc=1e9;
-      for(const s of idle){const p=findPath(s.at,i);if(!p)continue;const c=p.length+(s.at<0?Math.abs(p[0]%N-s.col)*0.8:0);if(c<bc){bc=c;best=s;bp=p;}}
+      for(const s of idle){const p=findPath(s.at,i,s.col);if(!p)continue;const c=p.length;if(c<bc){bc=c;best=s;bp=p;}}
       if(best){startJob(best,i,bp);idle.splice(idle.indexOf(best),1);}}
   }
   for(const s of sappers){
