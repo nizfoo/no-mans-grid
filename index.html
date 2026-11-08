@@ -205,6 +205,13 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .intel b{display:block;font-family:var(--f-sfx);font-weight:400;font-size:18px;letter-spacing:.05em;color:#7a5a12;line-height:1.05}
 .intel p{margin:3px 0 7px;font-family:var(--f-letter);font-size:15.5px;line-height:1.22}
 .intel.low{top:auto;bottom:4px}
+.intel-acts{display:flex;gap:8px}
+.intel button.ghost,.intel-pill button.ghost{background:transparent;color:var(--ink)}
+.intel ol b{font-weight:600}
+.intel-pill{position:absolute;right:4px;bottom:2px;z-index:4;display:flex;background:var(--paper);border:2px solid var(--ink);box-shadow:3px 3px 0 #000}
+.intel-pill.top{bottom:auto;top:2px}
+.intel-pill button{font-size:13px;padding:5px 9px;border:0;box-shadow:none;background:var(--ink);color:var(--paper)}
+.intel-pill button:active{transform:none}
 .intel ol{margin:5px 0 0;padding-left:20px;font-size:13.5px;line-height:1.25}
 .intel p.warn{color:#8f2519;margin-top:-3px}
 .intel button{font-size:13px;padding:5px 10px;background:var(--ink);color:var(--paper)}
@@ -264,7 +271,8 @@ button:disabled{opacity:.4;cursor:not-allowed}
     <div id="bootcheck" style="position:absolute;inset:auto 0 40%;margin:auto;max-width:300px;text-align:center;font:14px/1.4 system-ui,sans-serif;color:#e3d8bf;background:#1e1a15;border:2px solid #0b0908;padding:12px;z-index:3">Loading the field…<br><small style="color:#988e79">If this stays, the game couldn't start on this device. Screenshot this and send it over.</small></div>
     <canvas id="board" aria-label="Minefield map"></canvas>
     <div class="toast" id="toast" role="status"></div>
-    <div class="intel" id="intel" hidden role="dialog" aria-label="Intel brief"><b id="intelK"></b><p id="intelT"></p><p class="warn" id="intelW" hidden></p><button id="intelX">Understood</button></div>
+    <div class="intel" id="intel" hidden role="dialog" aria-label="Intel brief"><b id="intelK"></b><p id="intelT"></p><p class="warn" id="intelW" hidden></p><div class="intel-acts"><button id="intelHide">Show on map</button><button class="ghost" id="intelX">Done</button></div></div>
+    <div class="intel-pill" id="intelPill" hidden><button id="intelShow">Intel brief</button><button class="ghost" id="intelDone" aria-label="Done with intel brief">Done</button></div>
     <div class="casualty" id="casualty" hidden role="alertdialog" aria-label="Casualty"><b id="casK"></b><p id="casT"></p><div class="acts"><button id="casSend"></button><button class="ghost" id="casLeave">Leave him</button></div></div>
     <div class="hurry" id="hurry" hidden>Tap to hurry them</div>
   </div>
@@ -473,7 +481,7 @@ function nextHint(reg,N,st,secName){
   for(let i=0;i<NN;i++){if(st[i]!==1)continue;const open=attack[i].filter(j=>st[j]===0);
     if(open.length)return{kind:'Confirmed mine',short:`squares around the mine at ${nm(i)} are clear`,text:`${nm(i)} is a confirmed mine. Nothing else can sit in its row, column or sector, or touch it, so ${list(open)} ${open.length===1?'is':'are'} clear.`,focus:[i],mines:[],clears:open};}
   // 1: last spot
-  for(const u of units){const c=cands(st,u);if(c&&c.length===1)return{kind:'Last spot',short:`last spot for ${u.name}: ${nm(c[0])} is mined`,text:`There's only one square left where the mine for ${u.name} can go: ${nm(c[0])}.`,focus:u.cells,mines:[c[0]],clears:[]};}
+  for(const u of units){const c=cands(st,u);if(c&&c.length===1)return{kind:'Last spot',short:`${u.name} has one square left, so ${nm(c[0])} is mined`,text:`There's only one square left where the mine for ${u.name} can go: ${nm(c[0])}.`,focus:u.cells,mines:[c[0]],clears:[]};}
   // 2: boxed in
   for(const u of units){const c=cands(st,u);if(!c||c.length<2)continue;
     const ways=u.t==='g'?[['r',i=>(i/N)|0,k=>`row ${k+1}`],['c',i=>i%N,k=>`column ${L[k]}`]]:[['g',i=>reg[i],k=>secName(k)]];
@@ -726,7 +734,7 @@ function nextField(){
 // missions 1-50 climb from 5×5 to 9×9; after that the size is drawn at random, leaning large
 // Missions 1-50 use hand-picked boards: graded by the solver, then ordered so difficulty climbs smoothly within each board size
 const MISSION_SEEDS=[5007, 5009, 5015, 5505, 5429, 5596, 5521, 5543, 6392, 6189, 6120, 6209, 6406, 6099, 6378, 6089, 6053, 6574, 7542, 7376, 7380, 7557, 7590, 7235, 7298, 7297, 7250, 7269, 7381, 7076, 8385, 8581, 8030, 8225, 8148, 8040, 8400, 8052, 8486, 8354, 8093, 8165, 9334, 9293, 9202, 9310, 9590, 9085, 9254, 9410];
-const BUILD='27 · full stores';
+const BUILD='28 · intel on the map';
 const GRADES=['','I','II','III','IV','V','VI'];
 // after 50: a steady mix of grade III, IV and V
 function lateTarget(m){const r=mulberry32(m*977+5)();return r<.4?3:r<.8?4:5;}
@@ -759,7 +767,7 @@ function newField(opts={}){
   wx=WX[Math.floor(rng()*WX.length)];
   const dir=String(180+Math.floor(rng()*13)*10).padStart(3,'0'),spd=String(4+Math.floor(rng()*15)).padStart(2,'0'),q=990+Math.floor(rng()*24);
   $('metar').textContent=['FRONT '+String(new Date().getDate()).padStart(2,'0')+'0430Z',dir+spd+'KT',wx.vis,wx.code,wx.cl,wx.t,'Q'+String(q).padStart(4,'0')].filter(Boolean).join(' ');
-  arming=false;lob=null;wounded=[];casualties=[];bearers=null;$('casualty').hidden=true;uncut=new Set();intelHL=null;$('intel').hidden=true;roster=squad();fieldEdited=false;startTrio=roster.slice().sort().join('|');
+  arming=false;lob=null;wounded=[];casualties=[];bearers=null;$('casualty').hidden=true;uncut=new Set();intelHL=null;$('intel').hidden=true;$('intelPill').hidden=true;roster=squad();fieldEdited=false;startTrio=roster.slice().sort().join('|');
   cells=new Uint8Array(N*N);markT=new Float64Array(N*N);markAt=new Float64Array(N*N);seq=0;lostNames=[];undo=[];phase='play';troops=null;fx=[];ripples=[];outcome=null;banner=null;doneHold=0;stallT=0;
   stopTimer();elapsed=0;t0=null;
   const saved=store.get('board',null);
@@ -1407,8 +1415,12 @@ function briefNewIssues(list){
 let intelHL=null;
 const TERR_WORD={mud:'mud',grass:'grass',water:'crater-water',asphalt:'road'};
 function secName(g){return `the ${TERR_WORD[terr[g].k]||'marked'} sector at ${cellName(P.reg.indexOf(g))}`;}
-function closeIntel(){$('intel').hidden=true;intelHL=null;draw();}
-$('intelX').onclick=closeIntel;
+function closeIntel(){$('intel').hidden=true;$('intelPill').hidden=true;intelHL=null;draw();}
+$('intelX').onclick=closeIntel;$('intelDone').onclick=closeIntel;
+// tuck the brief away to study the highlighted squares, then bring it back as often as needed
+$('intelHide').onclick=()=>{const low=$('intel').classList.contains('low');$('intel').hidden=true;
+  $('intelPill').classList.toggle('top',!low);$('intelPill').hidden=false;draw();};
+$('intelShow').onclick=()=>{$('intelPill').hidden=true;$('intel').hidden=false;};
 $('intelBtn').onclick=()=>{
   if(phase!=='play')return;
   if(!stats.intel){toast(`No intel briefs in stores. One is issued for every ${FIELDS_PER_INTEL} fields taken.`);return;}
@@ -1434,11 +1446,11 @@ $('intelBtn').onclick=()=>{
   const mList=[...mines].map(cellName),nClear=[...clears].filter(i=>changed.has(i)).length;
   $('intelK').textContent=mList.length?`Intel brief · mine pinned at ${mList.join(', ')}`:'Intel brief';
   const shown=steps.length>6?steps.slice(0,2).concat([null],steps.slice(-3)):steps;
-  $('intelT').innerHTML=`HQ worked it through: ${mList.length?`${mList.join(' and ')} ${mList.length>1?'are mines':'is a mine'}`:'no new mine yet'}${nClear?` and ${nClear} square${nClear===1?' is':'s are'} clear`:''}. Marked on your map${nClear?'; sappers moving in':''}.<ol>${shown.map(h=>h?`<li>${h.short.charAt(0).toUpperCase()+h.short.slice(1)}.</li>`:'<li>…</li>').join('')}</ol>`;
+  $('intelT').innerHTML=`HQ worked it through: ${mList.length?`${mList.join(' and ')} ${mList.length>1?'are mines':'is a mine'}`:'no new mine yet'}${nClear?` and ${nClear} square${nClear===1?' is':'s are'} clear`:''}. Marked on your map${nClear?'; sappers moving in':''}.<ol>${shown.map(h=>h?`<li><b>${h.kind}:</b> ${h.short}.</li>`:'<li>…</li>').join('')}</ol>`;
   const w=$('intelW');w.hidden=!fixed.length;if(fixed.length)w.textContent=`HQ corrected your map at ${fixed.map(cellName).join(', ')}.`;
   const tg=[...mines,...clears],avgRow=tg.reduce((a,i)=>a+((i/N)|0),0)/Math.max(1,tg.length);
   $('intel').classList.toggle('low',avgRow<(N-1)/2);
-  $('intel').hidden=false;intelHL={focus:[...focus],mines:[...mines],clears:[...clears],t0:performance.now()};hud();save();draw();
+  $('intelPill').hidden=true;$('intel').hidden=false;intelHL={focus:[...focus],mines:[...mines],clears:[...clears],t0:performance.now()};hud();save();draw();
 };
 function drawIntel(now){
   if(!intelHL)return;const {cell}=geom,pulse=0.55+0.45*Math.sin((now-intelHL.t0)/260);

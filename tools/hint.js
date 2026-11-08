@@ -17,7 +17,7 @@ function nextHint(reg,N,st,secName){
   for(let i=0;i<NN;i++){if(st[i]!==1)continue;const open=attack[i].filter(j=>st[j]===0);
     if(open.length)return{kind:'Confirmed mine',short:`squares around the mine at ${nm(i)} are clear`,text:`${nm(i)} is a confirmed mine. Nothing else can sit in its row, column or sector, or touch it, so ${list(open)} ${open.length===1?'is':'are'} clear.`,focus:[i],mines:[],clears:open};}
   // 1: last spot
-  for(const u of units){const c=cands(st,u);if(c&&c.length===1)return{kind:'Last spot',short:`last spot for ${u.name}: ${nm(c[0])} is mined`,text:`There's only one square left where the mine for ${u.name} can go: ${nm(c[0])}.`,focus:u.cells,mines:[c[0]],clears:[]};}
+  for(const u of units){const c=cands(st,u);if(c&&c.length===1)return{kind:'Last spot',short:`${u.name} has one square left, so ${nm(c[0])} is mined`,text:`There's only one square left where the mine for ${u.name} can go: ${nm(c[0])}.`,focus:u.cells,mines:[c[0]],clears:[]};}
   // 2: boxed in
   for(const u of units){const c=cands(st,u);if(!c||c.length<2)continue;
     const ways=u.t==='g'?[['r',i=>(i/N)|0,k=>`row ${k+1}`],['c',i=>i%N,k=>`column ${L[k]}`]]:[['g',i=>reg[i],k=>secName(k)]];
