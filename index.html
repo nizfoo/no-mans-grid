@@ -590,10 +590,10 @@ const MEDALS=[
  {id:'longservice',n:'Long Service',d:'Retire a Regimental Sergeant Major with honours.',rib:['#8e2a1e','#e9dcc0','#8e2a1e'],sh:'crown'},
  {id:'push',n:'The Big Push',d:'Take your first 10×10 field.',rib:['#4d5b37','#8e2a1e','#c9a24a','#8e2a1e','#4d5b37'],sh:'cross'},
  {id:'week',n:'Week on the Wire',d:'Take the daily field seven days running. Every seventh day issues a Mills bomb.',rib:['#c9a24a','#7a1f1c','#c9a24a'],sh:'star'}];
-let stats=store.get('stats',null);if(!stats)stats={taken:0,failed:0,clean:0,cleanRun:0,bestRun:0,trio:{k:'',n:0},weathers:[],best:{},medals:{}};
+let stats=store.get('stats',null);if(!stats)stats={taken:0,failed:0,clean:0,cleanRun:0,bestRun:0,trio:{k:'',n:0},weathers:[],best:{},medals:{},bombs:5,intel:5,medics:2}; // new Lieutenants start with full stores
 if(stats.bombs==null)stats.bombs=1; // one to learn with
 if(stats.intel==null)stats.intel=1;if(stats.medics==null)stats.medics=1;if(stats.medicFields==null)stats.medicFields=0;if(stats.bombCleans==null)stats.bombCleans=0;if(stats.intelFields==null)stats.intelFields=0;
-const BOMB_CAP=3,INTEL_CAP=2,CLEANS_PER_BOMB=5,FIELDS_PER_INTEL=10,MEDIC_CAP=2,FIELDS_PER_MEDIC=15;
+const BOMB_CAP=5,INTEL_CAP=5,CLEANS_PER_BOMB=5,FIELDS_PER_INTEL=10,MEDIC_CAP=2,FIELDS_PER_MEDIC=15;
 let issueLog=[];
 function giveBomb(why){const ok=stats.bombs<BOMB_CAP;if(ok)stats.bombs++;issueLog.push({k:'bomb',why,ok});return ok;}
 function giveMedic(why){const ok=stats.medics<MEDIC_CAP;if(ok)stats.medics++;issueLog.push({k:'medic',why,ok});return ok;}
@@ -648,7 +648,7 @@ function bombArt(h){return `<svg viewBox="0 0 20 26" height="${h}" aria-hidden="
 function wipeCampaign(){
 
   try{const ks=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('nmg3.'))ks.push(k);}ks.forEach(k=>localStorage.removeItem(k));}catch(e){}
-  company={men:[],nextId:1,taken:0};stats={taken:0,failed:0,clean:0,cleanRun:0,bestRun:0,trio:{k:'',n:0},weathers:[],best:{},medals:{},bombs:1,intel:1,bombCleans:0,intelFields:0,medics:1,medicFields:0};
+  company={men:[],nextId:1,taken:0};stats={taken:0,failed:0,clean:0,cleanRun:0,bestRun:0,trio:{k:'',n:0},weathers:[],best:{},medals:{},bombs:5,intel:5,bombCleans:0,intelFields:0,medics:2,medicFields:0};
   mode='campaign';field=1;N=sizeFor(1);saveCompany();saveStats();
 }
 
@@ -724,7 +724,7 @@ function nextField(){
 // missions 1-50 climb from 5×5 to 9×9; after that the size is drawn at random, leaning large
 // Missions 1-50 use hand-picked boards: graded by the solver, then ordered so difficulty climbs smoothly within each board size
 const MISSION_SEEDS=[5007, 5009, 5015, 5505, 5429, 5596, 5521, 5543, 6392, 6189, 6120, 6209, 6406, 6099, 6378, 6089, 6053, 6574, 7542, 7376, 7380, 7557, 7590, 7235, 7298, 7297, 7250, 7269, 7381, 7076, 8385, 8581, 8030, 8225, 8148, 8040, 8400, 8052, 8486, 8354, 8093, 8165, 9334, 9293, 9202, 9310, 9590, 9085, 9254, 9410];
-const BUILD='25 · trench walkway';
+const BUILD='26 · bigger stores';
 const GRADES=['','I','II','III','IV','V','VI'];
 // after 50: a steady mix of grade III, IV and V
 function lateTarget(m){const r=mulberry32(m*977+5)();return r<.4?3:r<.8?4:5;}
