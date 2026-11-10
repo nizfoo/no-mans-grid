@@ -738,7 +738,7 @@ function nextField(){
 // missions 1-50 climb from 5×5 to 9×9; after that the size is drawn at random, leaning large
 // Missions 1-50 use hand-picked boards: graded by the solver, then ordered so difficulty climbs smoothly within each board size
 const MISSION_SEEDS=[5007, 5009, 5015, 5505, 5429, 5596, 5521, 5543, 6392, 6189, 6120, 6209, 6406, 6099, 6378, 6089, 6053, 6574, 7542, 7376, 7380, 7557, 7590, 7235, 7298, 7297, 7250, 7269, 7381, 7076, 8385, 8581, 8030, 8225, 8148, 8040, 8400, 8052, 8486, 8354, 8093, 8165, 9334, 9293, 9202, 9310, 9590, 9085, 9254, 9410];
-const BUILD='30 · start on hold';
+const BUILD='31 · enemy wire';
 const GRADES=['','I','II','III','IV','V','VI'];
 // after 50: a steady mix of grade III, IV and V
 function lateTarget(m){const r=mulberry32(m*977+5)();return r<.4?3:r<.8?4:5;}
@@ -839,13 +839,14 @@ function layout(){
   const availW=wrap.clientWidth,availH=wrap.clientHeight;
   const gut=20,labH=18;
   let cell=Math.floor((availW-gut-6)/N);
-  const cellH=Math.floor((availH-labH-4)/(N+1.3));
+  const cellH=Math.floor((availH-labH-4-16)/(N+1.3));
   cell=Math.max(24,Math.min(cell,cellH,66));
   const strip=Math.round(cell*0.65);
-  const W=gut+N*cell+6,H=strip*2+N*cell+labH;
+  const top=Math.max(16,Math.round(strip*0.48)); // band above the wire for its label
+  const W=gut+N*cell+6,H=top+strip*2+N*cell+labH;
   const dpr=Math.min(window.devicePixelRatio||1,3);
   cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cv.style.width=W+'px';cv.style.height=H+'px';
-  geom={W,H,cell,strip,x0:gut,y0:strip,dpr,labH,gap:Math.max(2,cell*0.055),rad:cell*0.24};
+  geom={W,H,cell,strip,top,x0:gut,y0:top+strip,dpr,labH,gap:Math.max(2,cell*0.055),rad:cell*0.24};
   uncut.clear();
   for(const s of sappers){if(!s.alive)continue;s.cutCol=-1;if(s.at>=0)[s.x,s.y]=cellXY(s.at);else{s.x=gut+s.col*cell+cell/2;s.y=trenchY();}s.pts=[];s.wp=[];s.job=-1;s.state='idle';s.returning=false;}
   buildStatic();draw();
@@ -898,18 +899,18 @@ function paintTerrain(g,v,b,rng){
 
 /* ---------- static map ---------- */
 function buildStatic(){
-  const {W,H,cell,strip,x0,y0,dpr,gap}=geom;
+  const {W,H,cell,strip,top,x0,y0,dpr,gap}=geom;
   const can=document.createElement('canvas');can.width=cv.width;can.height=cv.height;
   const g=can.getContext('2d');g.scale(dpr,dpr);
   const rng=mulberry32(field*31+N*7);
   const bw=N*cell,by=y0+N*cell;
   embers=[];ponds=[];
   // their wire
-  g.fillStyle='#16130f';g.fillRect(x0,0,bw,strip);
+  g.fillStyle='#16130f';g.fillRect(x0,top,bw,strip);
   g.strokeStyle='#4f483c';g.lineWidth=1.1;
-  for(let xx=x0+4;xx<x0+bw;xx+=cell*0.08){g.beginPath();g.ellipse(xx,strip*0.55,cell*0.09,strip*0.26,0.3,0,7);g.stroke();}
+  for(let xx=x0+4;xx<x0+bw;xx+=cell*0.08){g.beginPath();g.ellipse(xx,top+strip*0.55,cell*0.09,strip*0.26,0.3,0,7);g.stroke();}
   g.strokeStyle='#3b352b';g.lineWidth=2.5;
-  for(let xx=x0+cell*0.4;xx<x0+bw;xx+=cell*1.25){g.beginPath();g.moveTo(xx-5,strip*0.18);g.lineTo(xx+5,strip*0.9);g.moveTo(xx+5,strip*0.18);g.lineTo(xx-5,strip*0.9);g.stroke();}
+  for(let xx=x0+cell*0.4;xx<x0+bw;xx+=cell*1.25){g.beginPath();g.moveTo(xx-5,top+strip*0.18);g.lineTo(xx+5,top+strip*0.9);g.moveTo(xx+5,top+strip*0.18);g.lineTo(xx-5,top+strip*0.9);g.stroke();}
   g.font=`${Math.max(11,strip*0.36)}px ${F_SFX}`;g.textBaseline='middle';
   // our trench
   g.fillStyle='#16130f';g.fillRect(x0,by,bw,strip);
@@ -1040,16 +1041,17 @@ function draw(now){
     const gr=ctx.createRadialGradient(e.x,e.y,0,e.x,e.y,r*3);gr.addColorStop(0,`rgba(255,150,60,${a})`);gr.addColorStop(1,'rgba(255,90,30,0)');ctx.fillStyle=gr;ctx.fillRect(e.x-r*3,e.y-r*3,r*6,r*6);}
   for(const rp of ripples){const k=(t-rp.t)/1.1;if(k>1)continue;ctx.strokeStyle=`rgba(220,236,242,${0.45*(1-k)})`;ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(rp.x,rp.y,cell*0.18*k+1,cell*0.11*k+1,0,0,7);ctx.stroke();}
   // wire gaps: a top-row square is cleared once its sapper has cut through above it
-  {const {x0,strip}=geom;
+  {const {x0,strip,top}=geom;
    for(let c=0;c<N;c++){const v=cells[c];if(!(v===4||v===5||v===6)||uncut.has(c))continue;
      const xa=x0+c*cell+cell*0.14,xb=x0+(c+1)*cell-cell*0.14;
-     ctx.fillStyle='#16130f';ctx.fillRect(xa,strip*0.1,xb-xa,strip*0.86);
+     ctx.fillStyle='#16130f';ctx.fillRect(xa,top+strip*0.1,xb-xa,strip*0.86);
      ctx.strokeStyle='#5a5244';ctx.lineWidth=1.2;ctx.lineCap='round';
      for(const[xe,d]of[[xa,1],[xb,-1]]){
-       ctx.beginPath();ctx.moveTo(xe,strip*0.5);ctx.quadraticCurveTo(xe+d*cell*0.13,strip*0.36,xe+d*cell*0.09,strip*0.8);ctx.stroke();
-       ctx.beginPath();ctx.moveTo(xe,strip*0.3);ctx.quadraticCurveTo(xe+d*cell*0.1,strip*0.62,xe+d*cell*0.03,strip*0.9);ctx.stroke();}}
-   ctx.font=`${Math.max(11,strip*0.36)}px ${F_SFX}`;ctx.textBaseline='middle';ctx.textAlign='right';ctx.lineJoin='round';
-   ctx.lineWidth=3;ctx.strokeStyle='#0b0908';ctx.strokeText('THEIR WIRE',x0+N*cell-6,strip*0.52);ctx.fillStyle='#c9bfa6';ctx.fillText('THEIR WIRE',x0+N*cell-6,strip*0.52);}
+       ctx.beginPath();ctx.moveTo(xe,top+strip*0.5);ctx.quadraticCurveTo(xe+d*cell*0.13,top+strip*0.36,xe+d*cell*0.09,top+strip*0.8);ctx.stroke();
+       ctx.beginPath();ctx.moveTo(xe,top+strip*0.3);ctx.quadraticCurveTo(xe+d*cell*0.1,top+strip*0.62,xe+d*cell*0.03,top+strip*0.9);ctx.stroke();}}
+   // label sits in the band just above the wire, not on it
+   ctx.font=`${Math.max(11,Math.min(strip*0.36,top*0.9))}px ${F_SFX}`;ctx.textBaseline='alphabetic';ctx.textAlign='right';ctx.lineJoin='round';
+   const ly=top-3;ctx.lineWidth=3;ctx.strokeStyle='#0b0908';ctx.strokeText('ENEMY WIRE',x0+N*cell-2,ly);ctx.fillStyle='#c9bfa6';ctx.fillText('ENEMY WIRE',x0+N*cell-2,ly);}
   // marks
   for(let i=0;i<N*N;i++){
     const v=cells[i];if(!v)continue;const[x,y]=cellXY(i);
@@ -1225,13 +1227,13 @@ function finishWork(s){
     if(stats.medics>0){casualties.push({name:s.name,i});if(casualties.length===1)showCasualty();}
     else{killMan(s.name,i);checkAllDown();}
   }else{cells[i]=5;s.at=i;const m=man(s.name);if(m){m.squares++;saveCompany();}coach('stake','First yard staked. They only walk on staked ground, so work out from the trench.');
-    if(i<N){uncut.add(i);s.cutCol=i;s.state='move';s.returning=false;s.pts=[[cellXY(i)[0],geom.strip*0.74]];s.wp=[];}}
+    if(i<N){uncut.add(i);s.cutCol=i;s.state='move';s.returning=false;s.pts=[[cellXY(i)[0],geom.top+geom.strip*0.74]];s.wp=[];}}
   hud();save();
 }
 function finishCut(s){
   const c=s.cutCol;s.cutCol=-1;uncut.delete(c);
   const x=cellXY(c)[0];haptic();
-  if(!reduce)fx.push({x,y:geom.strip*0.5,t0:performance.now(),parts:[],smoke:[],word:'SNIP!',big:0.55,quiet:true,rot:(Math.random()-.5)*0.4});
+  if(!reduce)fx.push({x,y:geom.top+geom.strip*0.5,t0:performance.now(),parts:[],smoke:[],word:'SNIP!',big:0.55,quiet:true,rot:(Math.random()-.5)*0.4});
   coach('wire',`Wire cut above ${cellName(c)}. The line will go through the gaps.`);
   s.pts=[cellXY(c)];s.wp=[];s.returning=true;s.state='move';
 }
@@ -1341,12 +1343,12 @@ function mkLine(pts){const seg=[];let total=0;for(let k=1;k<pts.length;k++){cons
 function pointAt(L,d){d=Math.max(0,Math.min(L.total,d));for(let k=0;k<L.seg.length;k++){if(d<=L.seg[k]){const t=L.seg[k]?d/L.seg[k]:0,a=L.pts[k],b=L.pts[k+1];return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];}d-=L.seg[k];}return L.pts[L.pts.length-1];}
 function startCharge(){
   phase='charge';stopTimer();store.set('board',null);lastTap=null;hud();
-  const {cell,x0,strip}=geom;
+  const {cell,x0,strip,top}=geom;
   troops=[];
   for(let c=0;c<N;c++){const p=chargePath(c);if(!p)continue;
     const pts=[[x0+c*cell+cell/2,trenchY()]];
     for(const j of p){const[x,y]=cellXY(j);pts.push([x+(Math.random()-.5)*cell*0.3,y+(Math.random()-.5)*cell*0.2]);}
-    const lx=pts[pts.length-1][0];pts.push([lx,strip*0.3]);pts.push([lx,-cell*0.7]);
+    const lx=pts[pts.length-1][0];pts.push([lx,top+strip*0.3]);pts.push([lx,-cell*0.7]);
     troops.push({L:mkLine(pts),d:0,delay:0.35+Math.random()*0.45,speed:cell*(1.8+Math.random()*0.5),ph:Math.random()*6});}
   for(const s of sappers){if(!s.alive)continue;const p=pathHome(s);s.pts=[];s.wp=[];
     for(const j of p){s.pts.push(cellXY(j));s.wp.push(j);}
