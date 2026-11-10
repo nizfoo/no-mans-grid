@@ -61,7 +61,10 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .rule{font-size:13px;color:var(--ash);text-align:center;line-height:1.3}
 .rule b{color:var(--bone);font-weight:600}
 .controls{display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:7px}
-.controls .state{grid-column:1/-1;padding-block:5px}
+.controls .state{grid-column:3/-1;padding-block:5px}
+.hold{grid-column:1/3;font-family:var(--f-sfx);font-size:19px;letter-spacing:.06em;padding-block:4px}
+.hold.holding{background:var(--flare);color:var(--ink);animation:pulse 1.4s infinite}
+@media (prefers-reduced-motion:reduce){.hold.holding{animation:none}}
 .bomb{display:flex;align-items:center;gap:4px;padding-inline:8px;font-weight:600;font-variant-numeric:tabular-nums}
 .bomb svg{width:16px;height:20px;flex:none}
 .bomb[aria-pressed="true"]{background:var(--flare);color:var(--ink)}
@@ -277,7 +280,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
     <div class="hurry" id="hurry" hidden>Tap to hurry them</div>
   </div>
 
-  <div class="rule"><b>Tap</b> marks clear · <b>double-tap</b> or <b>hold</b> flags a mine · <b>drag</b> marks several. Sappers clear your marks as you go, working out from the trench.</div>
+  <div class="rule"><b>Tap</b> marks clear · <b>double-tap</b> or <b>long-press</b> flags a mine · <b>drag</b> marks several. Sappers clear your marks as you go; <b>Hold</b> stops them, <b>Go</b> sends them.</div>
 
   <div class="controls">
     <button id="undo">Undo</button>
@@ -285,6 +288,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
     <button id="bombBtn" class="bomb" aria-pressed="false" aria-label="Mills bombs"></button>
     <button id="intelBtn" class="bomb" aria-label="Intel briefs"></button>
     <button id="medicBtn" class="bomb" aria-label="Stretcher parties"></button>
+    <button id="holdBtn" class="hold" aria-pressed="false">Hold</button>
     <div class="state" id="state" role="status">Sappers waiting for marks</div>
   </div>
 </div>
@@ -734,7 +738,7 @@ function nextField(){
 // missions 1-50 climb from 5×5 to 9×9; after that the size is drawn at random, leaning large
 // Missions 1-50 use hand-picked boards: graded by the solver, then ordered so difficulty climbs smoothly within each board size
 const MISSION_SEEDS=[5007, 5009, 5015, 5505, 5429, 5596, 5521, 5543, 6392, 6189, 6120, 6209, 6406, 6099, 6378, 6089, 6053, 6574, 7542, 7376, 7380, 7557, 7590, 7235, 7298, 7297, 7250, 7269, 7381, 7076, 8385, 8581, 8030, 8225, 8148, 8040, 8400, 8052, 8486, 8354, 8093, 8165, 9334, 9293, 9202, 9310, 9590, 9085, 9254, 9410];
-const BUILD='28 · intel on the map';
+const BUILD='29 · hold and go';
 const GRADES=['','I','II','III','IV','V','VI'];
 // after 50: a steady mix of grade III, IV and V
 function lateTarget(m){const r=mulberry32(m*977+5)();return r<.4?3:r<.8?4:5;}
@@ -751,7 +755,7 @@ function sizeFor(m){if(m<=8)return 5;if(m<=18)return 6;if(m<=30)return 7;if(m<=4
 let field=store.get('mission',1),N=sizeFor(field);
 if(mode==='daily')N=7;
 let P,cells,markT,markAt,seq=0,roster,lostNames,terr,wx,phase='play',undo=[],sappers=[],troops=null,fx=[],ripples=[],embers=[],ponds=[],banner=null;
-let wounded=[],casualties=[],bearers=null,uncut=new Set(),grade=1,fieldEdited=false,startTrio='',arming=false,lob=null;
+let holding=store.get('hold',false),wounded=[],casualties=[],bearers=null,uncut=new Set(),grade=1,fieldEdited=false,startTrio='',arming=false,lob=null;
 let t0=null,elapsed=0,timerId=null,geom={},staticLayer=null,outcome=null,doneHold=0,stallT=0,chargeEnd=0;
 // cells: 0 empty, 1 marked clear (waiting on a sapper), 2 flag, 4 crater, 5 staked by a sapper
 
@@ -816,9 +820,12 @@ function hud(){bombHud();
   const st=$('state');
   if(phase==='charge')st.textContent='Over the top!';
   else if(phase==='done')st.textContent=(outcome&&outcome.fail?'Field lost':'Line taken')+' · open report';
+  else if(holding)st.textContent=q?`Holding · ${q} marked · tap Go`:'Holding · mark freely';
   else if(q)st.textContent=`Sappers at work · ${q} to clear`;
   else if(l)st.textContent='Sappers waiting for marks';
   else st.textContent='Field mapped';
+  const hb=$('holdBtn');hb.textContent=holding?'Go':'Hold';hb.classList.toggle('holding',holding);hb.setAttribute('aria-pressed',String(holding));
+  hb.setAttribute('aria-label',holding?'Go: send the sappers back to work':'Hold: stop the sappers where they are');hb.disabled=phase!=='play';
   $('undo').disabled=phase!=='play';$('restart').disabled=phase==='charge';
 }
 function startTimer(){if(t0!==null||phase!=='play')return;t0=performance.now()-elapsed*1000;timerId=setInterval(()=>{elapsed=(performance.now()-t0)/1000;$('clock').textContent=fmt(elapsed);},500);}
@@ -1051,8 +1058,8 @@ function draw(now){
   }
   if(outcome&&outcome.reveal){for(let r=0;r<N;r++){const i=r*N+P.sol[r];if(cells[i]!==2&&cells[i]!==4){const[x,y]=cellXY(i);ctx.globalAlpha=0.55;drawSign(x,y-cell*0.08,cell);ctx.globalAlpha=1;}}}
   for(const s of sappers){if(!s.alive)continue;
-    if(s.state==='move')drawSoldier(s.x,s.y,cell,s.ph,0.25*(s.dir||1));
-    else drawHunker(s.x,s.y,cell,s.state==='work'?s.ph:now/1000*2+s.col,s.state==='work');}
+    if(s.state==='move'&&!holding)drawSoldier(s.x,s.y,cell,s.ph,0.25*(s.dir||1));
+    else drawHunker(s.x,s.y,cell,s.state==='work'&&!holding?s.ph:now/1000*2+s.col,s.state==='work'&&!holding);}
   if(troops)for(const tr of troops){if(tr.delay>0||tr.d>=tr.L.total)continue;const[x,y]=pointAt(tr.L,tr.d);drawSoldier(x,y,cell,tr.ph,-0.1);}
   if(deny){const k=(now-deny.t0)/900;if(k>=1)deny=null;else{const a=1-k;ctx.lineWidth=3;
     for(const[q,col]of[[deny.i,'194,59,42'],[deny.j,'226,163,60']]){const[x,y]=cellXY(q),s=cell*0.44;ctx.strokeStyle=`rgba(${col},${a})`;rr(ctx,x-s,y-s,s*2,s*2,cell*0.14);ctx.stroke();}}}
@@ -1146,6 +1153,11 @@ $('restart').onclick=()=>{restartMission();save();};
 $('dailyBtn').onclick=()=>{if(phase==='charge')return;if(mode==='daily'){$('page').hidden=true;mode='campaign';store.set('mode',mode);N=sizeFor(field);newField({brief:true});}else showLedger();};
 $('coBtn').onclick=showCompany;
 $('briefBtn').onclick=()=>showOnboarding();
+$('holdBtn').onclick=()=>{
+  if(phase!=='play')return;holding=!holding;store.set('hold',holding);haptic(holding?'heavy':undefined);hud();draw();
+  if(holding&&!store.get('holdTip',false)){store.set('holdTip',true);toast('Sappers hold where they stand. Mark and fix freely, then tap Go to send them.',4200);}
+  else toast(holding?'Hold. Sappers stand fast.':'Go. Sappers moving.',1400);
+};
 $('state').onclick=()=>{if(phase==='done'&&outcome)showReport();};
 
 /* ---------- live sappers ---------- */
@@ -1181,7 +1193,7 @@ function moveSapper(s,dt){
   if(!s.pts.length){if(s.cutCol>=0){s.state='work';s.workT=0;}else if(s.returning||s.job<0){s.returning=false;s.state='idle';}else{s.state='work';s.workT=0;}}
 }
 function sapperTick(dt){
-  if(phase!=='play')return;
+  if(phase!=='play'||holding)return; // on Hold: nobody moves, probes or takes a new mark
   const idle=sappers.filter(s=>s.alive&&s.state==='idle');
   if(idle.length){
     const pend=[],now=performance.now();for(let i=0;i<N*N;i++)if(cells[i]===1&&now-markAt[i]>420&&!claimed(i))pend.push(i);
@@ -1653,7 +1665,7 @@ function sceneMap(mode){
     for(const[r,c]of[[4,0],[4,1],[4,2],[4,3],[3,0],[3,1],[3,3],[3,4],[2,2],[2,3],[2,4]])s+=X(r,c);
     s+=sign(4,4)+sign(3,2);
     s+=`<g transform="translate(${cx(0)+8} ${cy(4)})"><path d="M0 -8 V8" stroke="#0b0908" stroke-width="2.4"/><path d="M0 -8 L8 -5 L0 -2Z" fill="#f4efe2" stroke="#0b0908"/></g>`;
-    s+=label(bx+cs*5+8,by+cs*2.6,'tap: clear')+label(bx+cs*5+8,by+cs*3.5,'double-tap')+label(bx+cs*5+8,by+cs*4.0,'or hold: mine')+label(bx+cs*5+8,by+cs*4.9,'stake: swept');
+    s+=label(bx+cs*5+8,by+cs*2.6,'tap: clear')+label(bx+cs*5+8,by+cs*3.5,'double-tap')+label(bx+cs*5+8,by+cs*4.0,'or long-press: mine')+label(bx+cs*5+8,by+cs*4.9,'stake: swept');
   }
   s+=`<g transform="rotate(-24 300 120)"><rect x="258" y="116" width="84" height="7" fill="#c9a24a" stroke="#0b0908" stroke-width="1.2"/><path d="M342 116 L354 119.5 L342 123Z" fill="#e8d5ae" stroke="#0b0908" stroke-width="1.2"/></g>`;
   return s+'<rect width="360" height="300" fill="url(#pv)"/></svg>';
@@ -1692,7 +1704,7 @@ function onbPages(){
     {sc:'dugout',who:OC,line:"Between our men and their wire is a minefield nobody has mapped. That's your job now. Not the digging. The thinking."},
     {sc:'map:rules',who:OC,line:'Only one mine per row, column and sector. Sectors are marked by colour.',low:true},
     {sc:'map:blast',who:OC,line:'The mines are never laid touching. Not even corner to corner. One blast would set off the next.',low:true},
-    {sc:'map:marks',who:OC,line:"Tap ground you're certain is clear. Double-tap or hold where you're certain there's a mine. Your pencil is free to change until a sapper has been there.",low:true},
+    {sc:'map:marks',who:OC,line:"Tap ground you're certain is clear. Double-tap or long-press where you're certain there's a mine. Your pencil is free to change until a sapper has been there.",low:true},
     {sc:'trench',cap:`Your sappers. ${sq.join(', ')}.`},
     {sc:'trench',who:sq[0]||'Sapper',line:'We go where you mark, sir. Nowhere else.'},
     {sc:'trench',who:OC,line:"They follow your marks out from the trench, square by square. Mark one wrong and the man who gets there first pays for it. There are no spare men."},
