@@ -738,7 +738,7 @@ function nextField(){
 // missions 1-50 climb from 5×5 to 9×9; after that the size is drawn at random, leaning large
 // Missions 1-50 use hand-picked boards: graded by the solver, then ordered so difficulty climbs smoothly within each board size
 const MISSION_SEEDS=[5007, 5009, 5015, 5505, 5429, 5596, 5521, 5543, 6392, 6189, 6120, 6209, 6406, 6099, 6378, 6089, 6053, 6574, 7542, 7376, 7380, 7557, 7590, 7235, 7298, 7297, 7250, 7269, 7381, 7076, 8385, 8581, 8030, 8225, 8148, 8040, 8400, 8052, 8486, 8354, 8093, 8165, 9334, 9293, 9202, 9310, 9590, 9085, 9254, 9410];
-const BUILD='31 · enemy wire';
+const BUILD='32 · smarter sappers';
 const GRADES=['','I','II','III','IV','V','VI'];
 // after 50: a steady mix of grade III, IV and V
 function lateTarget(m){const r=mulberry32(m*977+5)();return r<.4?3:r<.8?4:5;}
@@ -1180,6 +1180,20 @@ function findPath(from,to,col){
     for(const j of nbrs(i)){if(prev[j]!==-2||!pass(j))continue;prev[j]=i;q.push(j);}}
   return null;
 }
+// one search from a sapper to every node: staked ground and trench are walkable, pending marks are destinations
+function reachFrom(s,targets){
+  const T=N*N,NODES=T+N,dist=new Int16Array(NODES).fill(-1),prev=new Int16Array(NODES).fill(-1);
+  const start=s.at<0?T+Math.max(0,Math.min(N-1,s.col|0)):s.at;dist[start]=0;const q=[start];
+  const walk=j=>j>=T||cells[j]===5||cells[j]===4||cells[j]===6;
+  for(let h=0;h<q.length;h++){const i=q[h];
+    if(i!==start&&targets.has(i))continue; // a mark is somewhere to go, not somewhere to pass through
+    const out=[];
+    if(i>=T){const c=i-T;if(c>0)out.push(i-1);if(c<N-1)out.push(i+1);out.push((N-1)*N+c);}
+    else{const r=(i/N)|0,c=i%N;if(r>0)out.push(i-N);if(c>0)out.push(i-1);if(c<N-1)out.push(i+1);out.push(r<N-1?i+N:T+c);}
+    for(const j of out){if(dist[j]>=0||!(walk(j)||targets.has(j)))continue;dist[j]=dist[i]+1;prev[j]=i;q.push(j);}}
+  return{dist,prev,start};
+}
+function pathTo(m,i){const p=[];for(let k=i;k!==m.start&&k>=0;k=m.prev[k])p.push(k);return p.reverse();}
 function claimed(i){return sappers.some(s=>s.alive&&s.job===i);}
 function startJob(s,i,p){
   s.job=i;s.state='move';s.returning=false;s.pts=[];s.wp=[];
@@ -1202,10 +1216,18 @@ function sapperTick(dt){
   const idle=sappers.filter(s=>s.alive&&s.state==='idle');
   if(idle.length){
     const pend=[],now=performance.now();for(let i=0;i<N*N;i++)if(cells[i]===1&&now-markAt[i]>420&&!claimed(i))pend.push(i);
-    pend.sort((a,b)=>markT[b]-markT[a]); // newest mark first
-    for(const i of pend){if(!idle.length)break;let best=null,bp=null,bc=1e9;
-      for(const s of idle){const p=findPath(s.at,i,s.col);if(!p)continue;const c=p.length;if(c<bc){bc=c;best=s;bp=p;}}
-      if(best){startJob(best,i,bp);idle.splice(idle.indexOf(best),1);}}
+    if(pend.length){
+      // Share the work by distance: each free man takes the nearest reachable mark from where he stands,
+      // pairing off globally shortest-first so nobody crosses the field past a closer job.
+      const pendSet=new Set(pend),maps=idle.map(s=>reachFrom(s,pendSet)),taken=new Set(),busyMen=new Set();
+      for(;;){let best=null;
+        for(let k=0;k<idle.length;k++){if(busyMen.has(k))continue;const d=maps[k].dist;
+          for(const i of pend){if(taken.has(i)||d[i]<0)continue;
+            // ties: nearer the trench first (it opens routes for later marks), then the newer mark
+            if(!best||d[i]<best.d||(d[i]===best.d&&(i>best.i||(i===best.i&&markT[i]>markT[best.i]))))best={k,i,d:d[i]};}}
+        if(!best)break;busyMen.add(best.k);taken.add(best.i);
+        startJob(idle[best.k],best.i,pathTo(maps[best.k],best.i));}
+    }
   }
   for(const s of sappers){
     if(!s.alive)continue;
